@@ -1,0 +1,47 @@
+# Render Blueprint. Review every value before applying. Secrets (sync: false) are entered in the Render dashboard, never committed.
+# UNVERIFIED against Render (never applied). Enter identical values for the shared secrets on BOTH services (e.g. ENCRYPTION_KEY).
+# NOTE: a Render *background worker* is a paid instance type; the API cannot run reviews/indexing without a worker.
+databases:
+  - name: synaxys-db
+    plan: basic-256mb          # choose a plan with backups for production
+    databaseName: synaxys
+    user: synaxys
+
+services:
+  - type: web
+    name: synaxys-api
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers
+    healthCheckPath: /api/v1/health
+    envVars: &common
+      - { key: PYTHON_VERSION, value: 3.12.7 }
+      - { key: APP_ENV, value: production }
+      - { key: DATABASE_URL, fromDatabase: { name: synaxys-db, property: connectionString } }
+      - { key: COOKIE_SECURE, value: "true" }
+      - { key: TRUST_PROXY_HEADERS, value: "true" }
+      - { key: FRONTEND_URL, sync: false }          # https://YOUR-VERCEL-DOMAIN
+      - { key: CORS_ORIGINS, sync: false }          # same value as FRONTEND_URL
+      - { key: BACKEND_URL, sync: false }           # https://YOUR-SERVICE.onrender.com (direct URL, used for the webhook)
+      - { key: APP_SECRET_KEY, sync: false }        # enter the SAME random value on both services
+      - { key: ENCRYPTION_KEY, sync: false }
+      - { key: GITHUB_CLIENT_ID, sync: false }
+      - { key: GITHUB_CLIENT_SECRET, sync: false }
+      - { key: GITHUB_REDIRECT_URI, sync: false }   # https://YOUR-VERCEL-DOMAIN/api/v1/auth/github/callback
+      - { key: GITHUB_APP_ID, sync: false }
+      - { key: GITHUB_APP_SLUG, sync: false }
+      - { key: GITHUB_APP_PRIVATE_KEY, sync: false } # PEM on one line with literal \n
+      - { key: GITHUB_WEBHOOK_SECRET, sync: false }
+      - { key: OPENAI_API_KEY, sync: false }
+      - { key: PINECONE_API_KEY, sync: false }
+      - { key: PINECONE_INDEX_NAME, value: synaxys-code }
+      - { key: EMBEDDING_DIMENSIONS, value: "1536" }
+
+  - type: worker
+    name: synaxys-worker
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.workers.runner
+    envVars: *common

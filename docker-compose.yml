@@ -1,0 +1,62 @@
+# Local full stack: PostgreSQL + API + worker + frontend (nginx). Development settings (APP_ENV=development).
+#   cp .env.example .env        # then set APP_SECRET_KEY and ENCRYPTION_KEY (see README); add GitHub/OpenAI/Pinecone values if you have them
+#   docker compose up --build
+# Open http://localhost:8080 . The API is also published on :8000 (needed to receive GitHub webhooks via a tunnel).
+# NOTE: this file has never been run (no Docker in the generation sandbox).
+x-backend-env: &backend-env
+  env_file: .env
+  environment:
+    DATABASE_URL: postgresql+psycopg://synaxys:${POSTGRES_PASSWORD:-synaxys_local_dev}@db:5432/synaxys
+    FRONTEND_URL: http://localhost:8080
+    CORS_ORIGINS: http://localhost:8080
+    BACKEND_URL: http://localhost:8000
+    GITHUB_REDIRECT_URI: http://localhost:8080/api/v1/auth/github/callback   # register this callback URL in your GitHub App
+    TRUST_PROXY_HEADERS: "true"                                              # all traffic arrives through the bundled nginx
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: synaxys
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-synaxys_local_dev}   # local development only; the port is NOT published to the host
+      POSTGRES_DB: synaxys
+    volumes:
+      - dbdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U synaxys -d synaxys"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    <<: *backend-env
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"
+    depends_on:
+      db: { condition: service_healthy }
+    ports:
+      - "8000:8000"
+
+  worker:
+    build: ./backend
+    <<: *backend-env
+    command: python -m app.workers.runner
+    depends_on:
+      api: { condition: service_healthy }      # api runs the migrations first
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.workers.runner", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    stop_grace_period: 40s                     # > WORKER_SHUTDOWN_GRACE_SECONDS (30)
+
+  web:
+    build: ./frontend
+    depends_on:
+      - api
+    ports:
+      - "8080:8080"
+
+volumes:
+  dbdata:

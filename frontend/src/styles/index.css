@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Geist Pixel Circle (SIL OFL 1.1). The file is fetched by `npm run fonts:install` (runs automatically before dev/build).
+   If it is missing the UI falls back to a monospace font; nothing breaks. */
+@font-face {
+  font-family: 'Geist Pixel Circle';
+  src: url('/fonts/geist-pixel-circle.woff2') format('woff2');
+  font-weight: 100 900; /* single static weight: declaring the range stops browsers from faking bold */
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --font-pixel: 'Geist Pixel Circle', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  /* LIGHT palette: #e0ddd5 #c8c4b9 #aca49c #e7663e #69605f #33272b */
+  --bg: 224 221 213;          /* #e0ddd5 */
+  --surface: 224 221 213;     /* #e0ddd5 (cards are separated by borders, which keeps muted text AA-readable) */
+  --surface-2: 200 196 185;   /* #c8c4b9 */
+  --border: 172 164 156;      /* #aca49c */
+  --fg: 51 39 43;             /* #33272b */
+  --muted: 105 96 95;         /* #69605f */
+  --accent: 231 102 62;       /* #e7663e  (fills, icons, focus ring) */
+  --accent-fg: 51 39 43;      /* #33272b  (text on accent fills) */
+  --accent-ink: 156 62 27;    /* derived darker shade of the accent so accent-coloured TEXT stays readable on #e0ddd5 */
+  /* status colours are not part of the palette; chosen to sit well with it */
+  --danger: 163 48 31; --danger-fg: 224 221 213; --warn: 138 82 10; --ok: 47 105 62; /* each >= 4.5:1 on #e0ddd5 */
+}
+.dark {
+  /* DARK palette: #d1d1d1 #828383 #434343 #2b2b2b #141414 #030303 */
+  --bg: 3 3 3;                /* #030303 */
+  --surface: 20 20 20;        /* #141414 */
+  --surface-2: 43 43 43;      /* #2b2b2b */
+  --border: 67 67 67;         /* #434343 */
+  --fg: 209 209 209;          /* #d1d1d1 */
+  --muted: 130 131 131;       /* #828383 */
+  --accent: 209 209 209;      /* #d1d1d1 */
+  --accent-fg: 3 3 3;         /* #030303 */
+  --accent-ink: 209 209 209;
+  --danger: 239 107 95; --danger-fg: 3 3 3; --warn: 224 164 88; --ok: 127 191 143;
+}
+
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }
+body { @apply bg-bg text-fg font-sans antialiased; }
+::selection { background: rgb(var(--accent) / 0.3); }
+:focus-visible { @apply outline-none ring-2 ring-accent ring-offset-2 ring-offset-bg; }
+
+/* Headings, titles, page names, header and sidebar use the pixel face. font-synthesis stops fake-bold on the single-weight font. */
+h1, h2, h3, .font-pixel { font-family: var(--font-pixel); font-synthesis: none; letter-spacing: 0.01em; }
+
+/* decorative dotted grid (login page backgrounds) */
+.pixel-grid { background-image: radial-gradient(rgb(var(--fg) / 0.16) 1px, transparent 1.2px); background-size: 22px 22px; }
+
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

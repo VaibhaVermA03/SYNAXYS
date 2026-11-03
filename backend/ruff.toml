@@ -1,0 +1,7 @@
+line-length = 200
+target-version = "py312"
+
+[lint]
+# Correctness-focused: syntax errors and pyflakes (unused/undefined names). Style rules are intentionally not enforced
+# (the code base uses compact one-line forms in places).
+select = ["E9", "F"]

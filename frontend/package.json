@@ -1,0 +1,50 @@
+{
+  "name": "synaxys-frontend",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint src",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install chromium",
+    "fonts:install": "node scripts/install-geist-pixel.mjs",
+    "predev": "node scripts/install-geist-pixel.mjs",
+    "prebuild": "node scripts/install-geist-pixel.mjs"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "3.9.1",
+    "@tanstack/react-query": "5.62.0",
+    "clsx": "2.1.1",
+    "lucide-react": "0.468.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-hook-form": "7.54.0",
+    "react-router-dom": "6.28.0",
+    "tailwind-merge": "2.5.5",
+    "zod": "3.24.1"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.16.0",
+    "@playwright/test": "1.49.1",
+    "@testing-library/dom": "10.4.0",
+    "@testing-library/jest-dom": "6.6.3",
+    "@testing-library/react": "16.1.0",
+    "@testing-library/user-event": "14.5.2",
+    "@vitejs/plugin-react": "4.3.4",
+    "autoprefixer": "10.4.20",
+    "eslint": "9.16.0",
+    "eslint-plugin-react": "7.37.2",
+    "eslint-plugin-react-hooks": "5.1.0",
+    "globals": "15.13.0",
+    "jsdom": "25.0.1",
+    "postcss": "8.4.49",
+    "tailwindcss": "3.4.16",
+    "vite": "5.4.11",
+    "vitest": "2.1.8"
+  }
+}
