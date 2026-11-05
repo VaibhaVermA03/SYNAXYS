@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, cleanup } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CodeSearchPage from './CodeSearchPage'
 import { mockFetch, renderApp, selectOption } from '../../test/utils'
@@ -46,6 +46,7 @@ describe('CodeSearchPage', () => {
     expect(await screen.findByText(/no matches/i)).toBeInTheDocument()
     expect(screen.getByText(/not semantic/i)).toBeInTheDocument()
     vi.unstubAllGlobals()
+    cleanup()
     setup(() => ({ status: 503, body: { error: { code: 'pinecone_not_configured', message: 'Pinecone is not configured. Set PINECONE_API_KEY and PINECONE_INDEX_NAME.' } } }))
     renderApp(<CodeSearchPage />, { withAuth: false })
     await search('pool')

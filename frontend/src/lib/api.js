@@ -48,8 +48,22 @@ export async function api(path, { method = 'GET', body, params, signal } = {}) {
 
 export function describeError(e) {
   if (!(e instanceof ApiError)) return 'Something went wrong.'
-  if (e.status === 429) return 'Too many requests. Please wait a moment and try again.'
-  if (e.status === 403) return e.message || 'You do not have permission to do that.'
-  if (e.status >= 500) return 'The server had a problem. Please try again shortly.'
+
+  if (e.status === 429) {
+    return 'Too many requests. Please wait a moment and try again.'
+  }
+
+  if (e.status === 403) {
+    return e.message || 'You do not have permission to do that.'
+  }
+
+  if (e.code === 'pinecone_not_configured') {
+    return e.message
+  }
+
+  if (e.status >= 500) {
+    return 'The server had a problem. Please try again shortly.'
+  }
+
   return e.message
 }

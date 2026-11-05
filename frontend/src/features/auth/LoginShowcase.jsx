@@ -16,7 +16,7 @@ export default function LoginShowcase() {
       <div className="relative z-10 m-auto w-full max-w-xl px-10 py-8">
         <p className="font-pixel text-xs uppercase tracking-[0.22em] text-muted">AI code review</p>
         <h2 className="mt-3 font-pixel text-3xl leading-tight xl:text-4xl">Smarter Reviews.<br />Safer Code.</h2>
-        <p className="mt-4 max-w-md text-sm text-muted [@media(max-height:680px)]:hidden">Evidence-backed findings on every pull request. You decide what gets posted to GitHub.</p>
+        {/* <p className="mt-4 max-w-md text-sm text-muted [@media(max-height:680px)]:hidden">Evidence-backed findings on every pull request. You decide what gets posted to GitHub.</p> */}
 
         <div className="mt-8 space-y-3">
           <div className="animate-reveal rounded-2xl border border-border bg-surface p-4 shadow-lg" style={{ animationDelay: '100ms' }}>

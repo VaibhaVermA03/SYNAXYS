@@ -25,7 +25,10 @@ const reviewDetail = (st) => ({ ...brief(st), repository: 'alice/shop', pr_id: 9
 
 export async function installMockApi(page, st = makeState()) {
   await page.route('**/api/v1/**', async (route) => {
-    const req = route.request(); const url = new URL(req.url()); const path = url.pathname.replace('/api/v1', ''); const m = req.method()
+    const req = route.request(); 
+    const url = new URL(req.url()); 
+    const path = url.pathname.replace('/api/v1', ''); 
+    const m = req.method()
     st.calls.push(`${m} ${path}`)
     const unsafe = m !== 'GET'
     if (path === '/auth/config') return json(route, ME.integrations)

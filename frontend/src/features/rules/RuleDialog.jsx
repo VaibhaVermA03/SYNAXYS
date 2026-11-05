@@ -20,12 +20,17 @@ const schema = z.object({
   enabled: z.boolean(),
 })
 const list = (s) => s.split(/[\n,]+/).map((x) => x.trim()).filter(Boolean)
-const Field = ({ label, error, children, hint, as: Tag = 'label' }) => (
-  <Tag className="block text-sm">
-    <span className="mb-1 block font-medium">{label}</span>{children}
+const Field = ({ label, id, error, children, hint, as: Tag = 'label' }) => (
+  <div className="block text-sm">
+    {Tag === 'label' ? (
+      <label htmlFor={id} className="mb-1 block font-medium">{label}</label>
+    ) : (
+      <div className="mb-1 block font-medium">{label}</div>
+    )}
+    {children}
     {hint && !error && <span className="mt-1 block text-xs text-muted">{hint}</span>}
     {error && <span role="alert" className="mt-1 block text-xs text-danger">{error}</span>}
-  </Tag>
+  </div>
 )
 
 export default function RuleDialog({ rule, repositories, onClose }) {
@@ -73,10 +78,14 @@ export default function RuleDialog({ rule, repositories, onClose }) {
         className="w-full max-w-lg space-y-4 rounded-xl border border-border bg-surface p-5 shadow-xl">
         <h2 id="rule-title" className="text-lg font-semibold">{editing ? 'Edit rule' : 'New review rule'}</h2>
         <p className="text-xs text-muted">Rules describe what to look for in code. They cannot change security policies; instructions that try to are rejected.</p>
-        <Field label="Name" error={errors.name?.message}><Input {...nameProps} ref={(el) => { nameRef(el); first.current = el }} /></Field>
-        <Field label="Description" error={errors.description?.message}><Input {...register('description')} /></Field>
-        <Field label="Instruction" error={errors.instruction?.message} hint="e.g. Flag SQL built with string concatenation or f-strings.">
-          <textarea {...register('instruction')} rows={4} className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm" />
+        <Field id="rule-name" label="Name" error={errors.name?.message}>
+          <Input id="rule-name" {...nameProps} ref={(el) => { nameRef(el); first.current = el }} />
+        </Field>
+        <Field id="rule-description" label="Description" error={errors.description?.message}>
+          <Input id="rule-description" {...register('description')} />
+        </Field>
+        <Field id="rule-instruction" label="Instruction" error={errors.instruction?.message} hint="e.g. Flag SQL built with string concatenation or f-strings.">
+          <textarea id="rule-instruction" {...register('instruction')} rows={4} className="w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm" />
         </Field>
         <div className="grid gap-3 sm:grid-cols-2">
           <Field as="div" label="Severity" error={errors.severity?.message}>
@@ -91,9 +100,12 @@ export default function RuleDialog({ rule, repositories, onClose }) {
             )} />
           </Field>
         </div>
-        <Field label="Languages" error={errors.languages?.message} hint="Comma separated, e.g. python, typescript. Empty = all."><Input {...register('languages')} /></Field>
-        <Field label="File patterns" error={errors.file_patterns?.message} hint="One per line or comma separated, e.g. src/**/*.py. Empty = all files.">
-          <textarea {...register('file_patterns')} rows={2} className="w-full rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs" />
+        <Field id="rule-languages" label="Languages" error={errors.languages?.message}
+          hint="Comma separated, e.g. python, typescript. Empty = all.">
+          <Input id="rule-languages" {...register('languages')} />
+        </Field>
+        <Field id="rule-file-patterns" label="File patterns" error={errors.file_patterns?.message} hint="One per line or comma separated, e.g. src/**/*.py. Empty = all files.">
+          <textarea id="rule-file-patterns" {...register('file_patterns')} rows={2} className="w-full rounded-lg border border-border bg-surface px-3 py-2 font-mono text-xs" />
         </Field>
         <section aria-labelledby="rule-test-title" className="space-y-2 rounded-lg border border-border p-3">
           <h3 id="rule-test-title" className="text-sm font-semibold">Test this rule</h3>

@@ -71,7 +71,7 @@ describe('RepositoriesPage — indexing', () => {
     job: { id: 1, status: 'indexing', files_total: 40, files_indexed: 10, chunks_upserted: 55, created_at: '' }, ...o })
 
   it('starts indexing for admins only and tells the user when it is queued', async () => {
-    const f = setup((url, m) => (m === 'POST' && url.endsWith('/1/index') ? { status: 202, body: status({ status: 'queued' }) } : url.endsWith('/index-status') ? { body: status({ status: 'queued' }) } : null))
+    const f = setup((url, m) => (m === 'POST' && url.endsWith('/3/index') ? { status: 202, body: status({ status: 'queued' }) } : url.endsWith('/index-status') ? { body: status({ status: 'queued' }) } : null))
     renderApp(ui, { withAuth: false }); await screen.findByText('alice/live')
     const btns = screen.getAllByRole('button', { name: /index code|re-index|retry indexing/i })
     expect(btns).toHaveLength(1)                                                   // only the connected repo (alice/live) is offered indexing

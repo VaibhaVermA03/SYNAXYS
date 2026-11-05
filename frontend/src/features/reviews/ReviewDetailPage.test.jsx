@@ -10,7 +10,7 @@ const finding = (o) => ({ id: 1, category: 'security', severity: 'high', title: 
   confidence: 0.55, confidence_label: 'medium', inline_possible: false, status: 'open', comment: { id: 1, state: 'draft', body: 'b', edited: false }, ...o })
 const review = (o = {}) => ({ id: 3, status: 'completed', trigger: 'webhook', findings: 1, by_severity: { critical: 0, high: 1, medium: 0, low: 0, info: 0 }, created_at: '2026-01-01T00:00:00Z', finished_at: null,
   duration_ms: 1200, error: null, is_demo: false, head_sha: 'abcdef123', repository: 'alice/app', pr_id: 9, pr_number: 4, pr_title: 'T', summary: 'Summary text', model: 'm', ai_generated: true,
-  by_category: { security: 1 }, findings_list: [finding({ inline_possible: true })], require_approval: true, auto_publish: false, can_retry: false,
+  by_category: { security: 1 }, findings_list: [finding({ inline_possible: false })], require_approval: true, auto_publish: false, can_retry: false,
   can_manage: false, approved_comments: 0, publishable: false, publish_blocker: null, ...o })
 const route = (f) => (u, m) => f(u, m) || (u.includes('/posting-attempts') ? { body: [] } : null)
 const ui = <Routes><Route path="/app/reviews/:reviewId" element={<ReviewDetailPage />} /></Routes>
@@ -125,7 +125,7 @@ describe('ReviewDetailPage — approval and publishing', () => {
   })
 
   it('shows the publishing history', async () => {
-    mockFetch((u, m) => (u.includes('/posting-attempts') ? { body: [{ id: 1, comment_id: 11, status: 'success', http_status: 200, error: null, actor: 'alice', created_at: '2026-01-01T00:00:00Z' }] } : { body: admin(withComment('published')) }))
+    mockFetch((u) => (u.includes('/posting-attempts') ? { body: [{ id: 1, comment_id: 11, status: 'success', http_status: 200, error: null, actor: 'alice', created_at: '2026-01-01T00:00:00Z' }] } : { body: admin(withComment('published')) }))
     renderApp(ui, { route: '/app/reviews/3', withAuth: false })
     expect(await screen.findByText('Publishing history')).toBeInTheDocument()
     expect(screen.getByText(/alice · HTTP 200/)).toBeInTheDocument()

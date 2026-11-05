@@ -13,7 +13,7 @@ test('full review journey with mocked GitHub and AI', async ({ page }) => {
   await expect(page).toHaveURL(/\/app\/dashboard/)
 
   // 2. connect a mocked repository and index it
-  await page.getByRole('link', { name: 'Repositories' }).click()
+  await page.getByRole('link', { name: 'Repositories', exact: true }).click()
   await expect(page.getByText('alice/shop')).toBeVisible()
   await page.getByRole('button', { name: 'Connect', exact: true }).click()
   await expect(page.getByText('Reviewing enabled for alice/shop.')).toBeVisible()

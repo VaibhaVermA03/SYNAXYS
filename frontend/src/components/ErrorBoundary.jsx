@@ -4,7 +4,7 @@ import { Component } from 'react'
 export default class ErrorBoundary extends Component {
   state = { error: null }
   static getDerivedStateFromError(error) { return { error } }
-  componentDidCatch(error, info) { console.error('UI error', error, info?.componentStack) } // eslint-disable-line no-console
+  componentDidCatch(error, info) { console.error('UI error', error, info?.componentStack) }
   render() {
     if (!this.state.error) return this.props.children
     return (
