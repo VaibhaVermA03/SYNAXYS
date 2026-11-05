@@ -30,7 +30,8 @@ class LLM:
 
 def settings(**kw):
     base = dict(github_app_configured=True, review_batch_chars=24000, review_total_chars=120000, review_max_batches=6, review_max_files=50,
-                review_max_patch_bytes=200000, review_min_confidence=0.5, review_max_findings=30)
+                review_max_patch_bytes=200000, review_min_confidence=0.5, review_max_findings=30,
+                context_retrieval_enabled=False, context_min_score=0.35)
     return SimpleNamespace(**{**base, **kw})
 
 

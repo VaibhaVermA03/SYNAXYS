@@ -4,7 +4,7 @@ import pytest
 
 os.environ.update(APP_ENV="test", APP_SECRET_KEY="test-secret-key-at-least-32-characters!!",
                   GITHUB_CLIENT_ID="cid", GITHUB_CLIENT_SECRET="csec", GITHUB_WEBHOOK_SECRET="whsec", DEMO_LOGIN_ENABLED="true",
-                  FRONTEND_URL="http://localhost:5173", CORS_ORIGINS="http://localhost:5173")
+                  FRONTEND_URL="http://localhost:5173", CORS_ORIGINS="http://localhost:5173", OPENAI_API_KEY="", PINECONE_API_KEY="",)
 
 
 @pytest.fixture()

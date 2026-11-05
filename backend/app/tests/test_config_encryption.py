@@ -29,13 +29,19 @@ def test_migration_and_seed_on_sqlite(tmp_path, monkeypatch):
 
 
 def test_key_rotation_script_reencrypts_only_old_tokens(tmp_path, monkeypatch):
+    import sys
     from cryptography.fernet import Fernet
     old, new = Fernet.generate_key().decode(), Fernet.generate_key().decode()
-    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/t.sqlite3"); monkeypatch.setenv("ENCRYPTION_KEY", f"{new},{old}")
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/t.sqlite3")
+    monkeypatch.setenv("ENCRYPTION_KEY", f"{new},{old}")
+
+    for m in [m for m in sys.modules if m.startswith("app.") and not m.startswith("app.tests")]:
+        del sys.modules[m]
     from app.core.config import get_settings; get_settings.cache_clear()
     from app.db.base import Base
     from app.db.session import SessionLocal, engine
     from app.models import OAuthIdentity, User
+    
     Base.metadata.create_all(engine)
     with SessionLocal() as db:
         u = User(github_id=1, login="a"); db.add(u); db.flush()

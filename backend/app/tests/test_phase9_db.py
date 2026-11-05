@@ -12,6 +12,13 @@ from app.tests.conftest import login
 
 SECRET = "ghp_" + "a" * 36
 
+_LEAK = [
+    f"value_{i} = {i}  # padding so this file spans several chunks"
+    for i in range(1, 41)
+]
+
+_LEAK[19] = f"token = '{SECRET}'"
+
 
 class FakeGH:
     def __init__(self, files, truncated=False):
@@ -39,8 +46,13 @@ def settings(**kw):
     return NS(**{**base, **kw})
 
 
-FILES = {"app/db.py": b"def open_connection(pool):\n    return pool.acquire()\n" * 8, "app/web.py": b"def render_template(name):\n    return load(name)\n" * 8,
-         "logo.png": b"\x89PNG\x00\x00", ".env": b"X=1", "app/leak.py": f"x = 1\ntoken = '{SECRET}'\ny = 2\n".encode()}
+FILES = {
+    "app/db.py": b"def open_connection(pool):\n    return pool.acquire()\n" * 8,
+    "app/web.py": b"def render_template(name):\n    return load(name)\n" * 8,
+    "logo.png": b"\x89PNG\x00\x00",
+    ".env": b"X=1",
+    "app/leak.py": ("\n".join(_LEAK) + "\n").encode()
+}
 
 
 @pytest.fixture()

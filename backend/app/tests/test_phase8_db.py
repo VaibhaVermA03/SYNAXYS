@@ -5,8 +5,11 @@ import pytest
 from sqlalchemy import select
 
 from app.core.security import finding_fingerprint
-from app.services.github_http import GitHubAPIError
 from app.tests.conftest import login
+
+def api_error(status):
+    from app.services.github_http import GitHubAPIError   # lazy: ctx reloads app.* modules
+    return GitHubAPIError(status)
 
 FP = finding_fingerprint(1, 7, "app/users.py", 12, 12, "security", "SQL injection")
 
@@ -25,11 +28,11 @@ class FakeGH:
     def list_review_comments_of_review(self, t, fn, n, rid): return [{"id": 555, "body": c["body"]} for c in self.reviews[-1]["comments"]]
     def create_pull_request_review(self, t, fn, n, commit_id, body, comments):
         if self.review_error: raise self.review_error
-        if any(c["line"] in self.bad for c in comments): raise GitHubAPIError(422)
+        if any(c["line"] in self.bad for c in comments): raise api_error(422)
         self.reviews.append({"commit_id": commit_id, "body": body, "comments": comments, "event": "COMMENT"}); return {"id": 77}
     def create_review_comment(self, t, fn, n, commit_id, c):
         if self.single_error: raise self.single_error
-        if c["line"] in self.bad: raise GitHubAPIError(422)
+        if c["line"] in self.bad: raise api_error(422)
         self.singles.append(c); return {"id": 900 + len(self.singles)}
 
 
@@ -141,7 +144,7 @@ def test_edit_resets_approval_validates_secrets_and_locks_after_publish(pub):
 
 
 def test_transient_github_failure_keeps_comment_approved_and_records_attempt(pub):
-    pub.gh.review_error = GitHubAPIError(502)
+    pub.gh.review_error = api_error(502)
     c, csrf = as_admin(pub); h = {"X-CSRF-Token": csrf}; approve(c, csrf, pub.ids)
     assert c.post(f"/api/v1/reviews/{pub.ids.review}/publish", headers=h).status_code == 502
     assert comment_state(pub) == "approved"
@@ -152,7 +155,7 @@ def test_transient_github_failure_keeps_comment_approved_and_records_attempt(pub
 
 
 def test_permission_denied_has_actionable_message(pub):
-    pub.gh.review_error = GitHubAPIError(403)
+    pub.gh.review_error = api_error(403)
     c, csrf = as_admin(pub); approve(c, csrf, pub.ids)
     r = c.post(f"/api/v1/reviews/{pub.ids.review}/publish", headers={"X-CSRF-Token": csrf})
     assert r.json()["error"]["code"] == "github_permission_denied" and "Pull requests" in r.json()["error"]["message"]

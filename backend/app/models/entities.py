@@ -5,9 +5,9 @@ from sqlalchemy import (JSON, BigInteger, Boolean, DateTime, Float, ForeignKey, 
                         String, Text, UniqueConstraint)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin, utcnow
+from app.db.base import Base, TimestampMixin, UTCDateTime,  utcnow
 
-DT = DateTime(timezone=True)
+DT = UTCDateTime()
 
 
 class User(Base, TimestampMixin):
