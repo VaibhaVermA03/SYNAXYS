@@ -2,9 +2,26 @@
 import os
 import pytest
 
-os.environ.update(APP_ENV="test", APP_SECRET_KEY="test-secret-key-at-least-32-characters!!",
-                  GITHUB_CLIENT_ID="cid", GITHUB_CLIENT_SECRET="csec", GITHUB_WEBHOOK_SECRET="whsec", DEMO_LOGIN_ENABLED="true",
-                  FRONTEND_URL="http://localhost:5173", CORS_ORIGINS="http://localhost:5173", OPENAI_API_KEY="", PINECONE_API_KEY="",)
+
+os.environ.update(
+    APP_ENV="test",
+    APP_SECRET_KEY="test-secret-key-at-least-32-characters!!",
+
+    GITHUB_CLIENT_ID="cid",
+    GITHUB_CLIENT_SECRET="csec",
+    GITHUB_WEBHOOK_SECRET="whsec",
+
+    # Dummy GitHub App credentials for automated tests only
+    GITHUB_APP_ID="123456",
+    GITHUB_APP_PRIVATE_KEY="test-private-key",
+
+    DEMO_LOGIN_ENABLED="true",
+    FRONTEND_URL="http://localhost:5173",
+    CORS_ORIGINS="http://localhost:5173",
+    OPENAI_API_KEY="",
+    PINECONE_API_KEY="",
+)
+
 
 
 @pytest.fixture()
