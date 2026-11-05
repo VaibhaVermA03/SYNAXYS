@@ -10,6 +10,7 @@ RUN pip install -r requirements.txt
 COPY alembic.ini ./
 COPY migrations ./migrations
 COPY app ./app
+COPY start.py ./start.py
 
 # never run as root; /tmp is writable for the worker heartbeat file
 RUN useradd --create-home --uid 10001 synaxys && chown -R synaxys /app
@@ -19,4 +20,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
   CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=4).status == 200 else 1)"
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+CMD ["sh", "-c", "alembic upgrade head && exec python start.py"]
