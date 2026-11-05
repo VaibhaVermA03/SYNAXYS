@@ -110,7 +110,7 @@ def test_rules_reach_the_prompt_and_github_errors_propagate(rv):
 
 
 def test_worker_marks_review_failed_after_final_attempt(rv):
-    from app.core.exceptions import NotConfigured
+    
     from app.services import job_queue as q
     from app.workers.runner import Worker
     from app.models import BackgroundJob

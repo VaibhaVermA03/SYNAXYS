@@ -1,7 +1,7 @@
 """All persistent entities. Credentials are stored only as Fernet ciphertext (*_enc)."""
 from datetime import datetime
 
-from sqlalchemy import (JSON, BigInteger, Boolean, DateTime, Float, ForeignKey, Index, Integer,
+from sqlalchemy import (JSON, BigInteger, Boolean, Float, ForeignKey, Index, Integer,
                         String, Text, UniqueConstraint)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 

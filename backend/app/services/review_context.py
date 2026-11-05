@@ -1,6 +1,6 @@
 """Pure helpers that decide WHAT is sent to the model: file eligibility, rule selection,
 size-bounded batches and the line-numbered diff rendering. Secrets are redacted here."""
-import fnmatch
+
 import posixpath
 import re
 from dataclasses import dataclass

@@ -21,7 +21,7 @@ def env(tmp_path, monkeypatch):
 @pytest.fixture()
 def ctx(env):
     """Fresh app + schema per test. Returns an object with client, db factory, fake GitHub hooks."""
-    import importlib, sys
+    import sys
     for m in [m for m in sys.modules if m.startswith("app.") and m != "app.tests.conftest" and not m.startswith("app.tests")]:
         del sys.modules[m]
     from fastapi.testclient import TestClient

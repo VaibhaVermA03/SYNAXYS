@@ -3,7 +3,7 @@
 Never edit docs/API.md by hand; regenerate it."""
 import ast
 import pathlib
-import re
+
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 API = ROOT / "backend/app/api/v1"

@@ -121,7 +121,7 @@ def test_only_repo_admins_may_edit_approve_or_publish_and_csrf_required(pub):
     assert c.post(f"/api/v1/reviews/{pub.ids.review}/approve", json={}).status_code == 403                    # CSRF
     with pub.db() as db:
         db.execute(RepositoryAccess.__table__.update().values(role="member")); db.commit()
-    for path, m, body in ((f"/approve", "post", {}), (f"/publish", "post", None), (f"/comments/{pub.ids.comment}", "patch", {"body": "x"})):
+    for path, m, body in (("/approve", "post", {}), ("/publish", "post", None), (f"/comments/{pub.ids.comment}", "patch", {"body": "x"})):
         r = getattr(c, m)(f"/api/v1/reviews/{pub.ids.review}{path}", headers={"X-CSRF-Token": csrf}, **({"json": body} if body is not None else {}))
         assert r.status_code == 403, path
     eve, ecsrf = login(pub, {"id": 9, "login": "eve"})

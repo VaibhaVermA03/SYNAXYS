@@ -1,5 +1,5 @@
 """Indexing flow + search isolation on SQLite with fakes. NOT RUN in the build sandbox (needs deps)."""
-import base64
+
 from types import SimpleNamespace as NS
 
 import pytest
@@ -57,7 +57,7 @@ FILES = {
 
 @pytest.fixture()
 def idx(ctx):
-    from app.models import GitHubInstallation, IndexingJob, Repository, RepositoryAccess, ReviewConfiguration, User
+    from app.models import GitHubInstallation, Repository, RepositoryAccess, ReviewConfiguration, User
     with ctx.db() as db:
         u = User(github_id=1, login="alice"); db.add(u); db.flush()
         i = GitHubInstallation(installation_id=10, account_login="alice"); db.add(i); db.flush()
@@ -128,7 +128,7 @@ def test_deadline_stops_cleanly_and_next_run_resumes_incrementally(idx):
 
 
 def test_disconnect_cleanup_removes_only_this_repos_namespace(idx):
-    from app.models import IndexedFile
+    
     from app.services.indexing_service import delete_repository_index
     run(idx, FILES)
     idx.store.upsert("repo-999", [{"id": "z#0", "values": [0.1] * 64, "metadata": {"repo_id": 999}}])
@@ -168,7 +168,7 @@ def test_index_delete_handler_skips_when_repo_was_reconnected(idx, monkeypatch):
 def api(idx, monkeypatch):
     monkeypatch.setenv("VECTOR_BACKEND", "memory"); monkeypatch.setenv("EMBEDDING_DIMENSIONS", "64")
     from app.core.config import get_settings; get_settings.cache_clear()
-    from app.services import vector_service, embedding_service
+    from app.services import vector_service
     idx.store = vector_service._MEMORY
     return idx
 
