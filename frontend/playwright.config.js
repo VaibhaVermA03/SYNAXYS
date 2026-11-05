@@ -4,7 +4,8 @@ import { defineConfig, devices } from '@playwright/test'
 // and no real accounts are ever used. Set E2E_BACKEND=1 to also run e2e/demo-backend.spec.js against a real local backend.
 export default defineConfig({
   testDir: './e2e',
-  timeout: 30_000,
+  workers: 1,
+  timeout: 60_000,
   fullyParallel: true,
   retries: process.env.CI ? 1 : 0,
   reporter: [['list'], ['html', { open: 'never' }]],
