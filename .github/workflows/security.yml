@@ -27,14 +27,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       # Report everything, but only ERROR-severity findings fail the build (WARNING/INFO are reviewed from the report).
+      
       - name: Semgrep scan
         run: |
           semgrep scan --metrics=off --config p/python --config p/javascript --config p/react --config p/owasp-top-ten \
             --exclude node_modules --exclude dist --exclude "backend/app/tests" --exclude "frontend/e2e" \
-            --sarif --output semgrep.sarif --text --output semgrep.txt || true
+            --sarif --output semgrep.sarif || true
+
+          semgrep scan --metrics=off --config p/python --config p/javascript --config p/react --config p/owasp-top-ten \
+            --exclude node_modules --exclude dist --exclude "backend/app/tests" --exclude "frontend/e2e" \
+            --text --output semgrep.txt || true
+
           semgrep scan --metrics=off --config p/python --config p/javascript --config p/react --config p/owasp-top-ten \
             --exclude node_modules --exclude dist --exclude "backend/app/tests" --exclude "frontend/e2e" \
             --severity ERROR --error --quiet
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:

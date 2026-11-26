@@ -17,7 +17,7 @@ SECRET_PATTERNS = {
     "OpenAI key": re.compile(r"sk-[A-Za-z0-9_\-]{30,}"), "Pinecone key": re.compile(r"pcsk_[A-Za-z0-9_]{20,}"),
     "AWS key id": re.compile(r"AKIA[0-9A-Z]{16}"), "PEM body": re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----\s*[A-Za-z0-9+/=]{40,}"),
 }
-KNOWN_FAKES = {"AKIAABCDEFGHIJKLMNOP"}  # the placeholder used in redaction tests
+
 for f in files:
     rel = f.relative_to(ROOT).as_posix()
     if any(re.search(p, rel) for p in FORBIDDEN):
@@ -29,8 +29,7 @@ for f in files:
         continue
     for name, rx in SECRET_PATTERNS.items():
         for m in rx.finditer(text):
-            if m.group(0) not in KNOWN_FAKES:
-                problems.append(f"possible {name} in {rel}: {m.group(0)[:12]}…")
+            problems.append(f"possible {name} in {rel}: {m.group(0)[:12]}…")
 
 # ---- 2. required files (from the build specification)
 REQUIRED = """README.md SECURITY.md DEPLOYMENT.md TESTING.md MANIFEST.md IMPLEMENTATION_STATUS.md TEST_REPORT.md .gitignore .env.example docker-compose.yml render.yaml

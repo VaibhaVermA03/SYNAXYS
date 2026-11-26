@@ -6,7 +6,9 @@ import pytest
 from sqlalchemy import select
 
 from app.tests.conftest import login
-from app.tests.test_phase9_db import FILES, FakeGH, api, idx, settings  # noqa: F401  (idx and api are fixtures)
+pytest_plugins = ("app.tests.test_phase9_db",)
+
+from app.tests.test_phase9_db import FILES, FakeGH, settings
 
 
 def api_error(status):
@@ -169,7 +171,7 @@ def test_embedding_budget_stops_the_run_as_partial_and_it_can_be_continued(idx):
     assert out == "partial" and 0 < len(by_branch(idx)["main"]) < 4 and "Embedding budget" in state(idx)[4]
     with idx.db() as db:
         retry_failed_batches(db, db.get(IndexingJob, jid)); db.commit()
-    done = 0
+    
     for _ in range(6):
         with idx.db() as db: out = run_index(db, s, BranchGH({"main": files}), idx.store, idx.emb, jid)
         if out == "completed": break
@@ -238,7 +240,7 @@ def test_search_is_branch_scoped_and_explains_unknown_branches(api):
 
 
 def test_start_index_validates_the_branch_and_limits_extra_branches(api, monkeypatch):
-    gh = use_gh(api, BranchGH({"main": FILES, "dev": FILES, "qa": FILES}))
+    use_gh(api, BranchGH({"main": FILES, "dev": FILES, "qa": FILES}))
     monkeypatch.setenv("INDEX_MAX_BRANCHES", "1")
     from app.core.config import get_settings; get_settings.cache_clear()
     c, csrf = login(api); h = {"X-CSRF-Token": csrf}

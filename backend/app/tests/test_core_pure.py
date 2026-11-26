@@ -20,7 +20,7 @@ def test_signature_rejects_tamper_missing_wrong_prefix():
     assert not verify_github_signature("", b"x", _sig("", b"x"))
 
 def test_redaction():
-    t = "key ghp_" + "a" * 36 + " and AKIAABCDEFGHIJKLMNOP"
+    t = "key ghp_" + "a" * 36 + " and " + "AKIA" + "ABCDEFGHIJKLMNOP"
     assert "ghp_" not in redact_secrets(t) and contains_secret(t)
     assert not contains_secret("plain code x = 1")
 

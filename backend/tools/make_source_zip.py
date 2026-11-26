@@ -22,7 +22,6 @@ SECRETS = {
     "AWS key id": re.compile(r"AKIA[0-9A-Z]{16}"), "PEM body": re.compile(r"-----BEGIN [A-Z ]*PRIVATE KEY-----\s*[A-Za-z0-9+/=]{40,}"),
     "Fernet-style key assigned": re.compile(r"(ENCRYPTION_KEY|APP_SECRET_KEY)\s*=\s*[A-Za-z0-9_\-+/]{32,}={0,2}\s*$", re.M),
 }
-KNOWN_FAKES = {"AKIAABCDEFGHIJKLMNOP"}
 
 
 def main(out: pathlib.Path) -> int:
@@ -42,7 +41,7 @@ def main(out: pathlib.Path) -> int:
             include.append(f); continue
         for name, rx in SECRETS.items():
             for m in rx.finditer(text):
-                if m.group(0) not in KNOWN_FAKES and "example" not in rel.lower() and "/tests/" not in rel:
+                if "example" not in rel.lower() and "/tests/" not in rel:
                     problems.append(f"possible {name} in {rel}")
         include.append(f)
     if problems:
