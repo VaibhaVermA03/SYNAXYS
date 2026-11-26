@@ -25,7 +25,7 @@ jobs:
     container:
       image: semgrep/semgrep:latest   # TODO: pin to a digest/version once chosen (docs/PHASE1_OPERATIONS.md)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # Report everything, but only ERROR-severity findings fail the build (WARNING/INFO are reviewed from the report).
       
       - name: Semgrep scan
@@ -58,7 +58,7 @@ jobs:
   secrets:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with: { fetch-depth: 0 }   # full history: a secret removed in a later commit is still a leaked secret
       - uses: gitleaks/gitleaks-action@v2   # free for personal accounts; organisations need a GITLEAKS_LICENSE secret
         env:
