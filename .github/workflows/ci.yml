@@ -38,7 +38,7 @@ jobs:
     defaults: { run: { working-directory: frontend } }
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 22 }
       - name: Install (npm ci when a lockfile is committed)
         run: if [ -f package-lock.json ]; then npm ci; else npm install; fi
@@ -52,7 +52,7 @@ jobs:
     defaults: { run: { working-directory: frontend } }
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with: { node-version: 22 }
       - run: if [ -f package-lock.json ]; then npm ci; else npm install; fi
       - run: npx playwright install --with-deps chromium
