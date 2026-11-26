@@ -31,4 +31,4 @@ pinecone==5.4.2
 
 # Phase 1 (added without network access: versions are ranges on purpose; run `pip install -r requirements.txt && pip freeze` once and pin what resolves)
 redis>=5.2,<7
-sentry-sdk>=2.19,<3
+sentry-sdk>=2.76.0,<3
