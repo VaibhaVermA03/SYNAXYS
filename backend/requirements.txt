@@ -30,5 +30,5 @@ openai==3.45.0
 pinecone==5.4.2
 
 # Phase 1 (added without network access: versions are ranges on purpose; run `pip install -r requirements.txt && pip freeze` once and pin what resolves)
-redis>=5.2,<7
+redis>=8.2.0,<9
 sentry-sdk>=2.19,<3
