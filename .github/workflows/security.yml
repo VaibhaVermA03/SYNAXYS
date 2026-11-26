@@ -53,7 +53,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }   # full history: a secret removed in a later commit is still a leaked secret
-      - uses: gitleaks/gitleaks-action@v2   # free for personal accounts; organisations need a GITLEAKS_LICENSE secret
+      - uses: gitleaks/gitleaks-action@v3   # free for personal accounts; organisations need a GITLEAKS_LICENSE secret
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITLEAKS_CONFIG: .gitleaks.toml
