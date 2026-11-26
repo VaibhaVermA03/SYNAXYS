@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import current_user
+from app.api.deps import active_workspace, current_user
 from app.db.session import get_db
 from app.db.base import utcnow
 from app.models import CodeReview, PullRequest, Repository, ReviewComment, ReviewFinding, User
@@ -17,8 +17,8 @@ SEVERITIES = ["critical", "high", "medium", "low", "info"]
 
 
 @router.get("/dashboard", response_model=DashboardOut)
-def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user)):
-    ids = accessible_repo_ids(db, user)
+def dashboard(db: Session = Depends(get_db), user: User = Depends(current_user), ws: int | None = Depends(active_workspace)):
+    ids = accessible_repo_ids(db, user, ws)
     repos = Repository.id.in_(ids)
     total = db.scalar(select(func.count()).select_from(Repository).where(repos)) or 0
     connected = db.scalar(select(func.count()).select_from(Repository).where(repos, Repository.is_enabled.is_(True))) or 0

@@ -16,6 +16,9 @@ from app.db.base import utcnow
 from app.models import (AuditLog, CodeReview, GitHubInstallation, PullRequest, Repository, RepositoryAccess, ReviewComment, ReviewFinding,
                         ReviewRule)
 from app.services import job_queue
+from app.services import notification_service
+from app.services.finding_service import load_dismissed_index
+from app.services.review_workflow_logic import match_dismissed
 from app.services.context_retrieval import build_queries, retrieve_context
 from app.services.comment_service import format_inline_comment
 from app.services.job_policy import sanitize_error
@@ -109,19 +112,31 @@ def execute_review(db: Session, s: Settings, review_id: int, gh, llm_factory, *,
     review = db.get(CodeReview, review_id)
     if review.status == "cancelled":  # cancelled while the model was running: discard results
         return "cancelled"
+    dismissed = load_dismissed_index(db, pr.id)  # read BEFORE clear(): a re-run of this review must not forget its own dismissals
     review.findings.clear()
     db.flush()
+    carried = 0
     for f in result.findings:
         row = ReviewFinding(review_id=review.id, fingerprint=f["fingerprint"], category=f["category"], severity=f["severity"], title=f["title"],
                             explanation=f["explanation"], evidence=f["evidence"], path=f["path"], start_line=f["start_line"], end_line=f["end_line"],
                             remediation=f["remediation"], patch=f["patch"], confidence=f["confidence"], inline_possible=f["inline_possible"])
+        earlier = match_dismissed(f, dismissed)
+        if earlier is not None:  # the team already dismissed this problem on this pull request: keep it dismissed, do not propose a comment again
+            row.status, row.dismissed_by_id, row.dismissed_at = "dismissed", earlier["dismissed_by_id"], earlier["dismissed_at"]
+            row.dismiss_reason, row.dismiss_note = earlier["dismiss_reason"], earlier["dismiss_note"]
+            carried += 1
         if f["inline_possible"]:  # only findings with a verified diff location get a proposed inline comment
-            row.comment = ReviewComment(body=format_inline_comment(f), state="draft")
+            row.comment = ReviewComment(body=format_inline_comment(f), state="cancelled" if earlier is not None else "draft")
         db.add(row)
     review.summary, review.model = (result.summary + (" " + note["text"] if note.get("text") else "")), result.model[:80]
     review.status, review.finished_at, review.duration_ms = "completed", utcnow(), int((time.monotonic() - started) * 1000)
-    db.add(AuditLog(action="review.completed", target_type="review", target_id=str(review.id), meta={"findings": len(result.findings), **{k: v for k, v in result.stats.items() if isinstance(v, int)}}))
-    if repo.config and repo.config.auto_publish and any(f["inline_possible"] for f in result.findings):  # owner-enabled policy only
+    db.add(AuditLog(action="review.completed", target_type="review", target_id=str(review.id), meta={"findings": len(result.findings), "carried_dismissed": carried, **{k: v for k, v in result.stats.items() if isinstance(v, int)}}))
+    if repo.config and repo.config.auto_publish and any(f["inline_possible"] and match_dismissed(f, dismissed) is None for f in result.findings):  # owner-enabled policy only
         job_queue.enqueue(db, "publish", {"review_id": review.id}, f"publish:{review.id}:auto", timeout_seconds=300)
+    sev: dict[str, int] = {}
+    for f in result.findings:
+        if match_dismissed(f, dismissed) is None:
+            sev[f["severity"]] = sev.get(f["severity"], 0) + 1
+    notification_service.safe(notification_service.on_review_completed, db, review, pr, repo, sum(sev.values()), sev)  # in-app notifications; never breaks the review
     db.commit()
     return "completed"

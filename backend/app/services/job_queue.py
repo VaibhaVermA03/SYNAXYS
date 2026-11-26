@@ -110,10 +110,16 @@ def recover_stale(db: Session, now: datetime | None = None) -> list[tuple[int, s
     return out
 
 
-def cancel(db: Session, job_id: int) -> bool:
-    res = db.execute(update(BackgroundJob).where(BackgroundJob.id == job_id, BackgroundJob.status == "queued")
-                     .values(status="cancelled", finished_at=utcnow()))
-    db.commit()
+def cancel(db: Session, job_id: int, *, reason: str | None = None, commit: bool = True) -> bool:
+    """Atomic queued -> cancelled. Workers only claim status='queued' rows, so once this UPDATE wins the job can never start;
+    if a worker claimed it first the WHERE matches nothing and False is returned (no state is changed).
+    commit=False lets the caller change related rows in the same transaction."""
+    values = {"status": "cancelled", "finished_at": utcnow()}
+    if reason:
+        values["last_error"] = reason[:500]
+    res = db.execute(update(BackgroundJob).where(BackgroundJob.id == job_id, BackgroundJob.status == "queued").values(**values))
+    if commit:
+        db.commit()
     return res.rowcount == 1
 
 

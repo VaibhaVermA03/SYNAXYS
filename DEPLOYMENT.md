@@ -42,7 +42,7 @@ Notes:
 * A Render **background worker is a paid instance type**; without a worker, webhooks are accepted and queued but no review, indexing or publish job ever runs.
 * Free web instances sleep; webhook deliveries to a sleeping instance may time out (GitHub lets you redeliver).
 * Running migrations in the start command is simple but means every restart runs `alembic upgrade head`; use a pre-deploy command if your plan supports it.
-* Rate limiting is per process — keep **one API instance** unless you add a shared limiter.
+* Rate limiting is shared across API instances only when `REDIS_URL` is set (Render Key Value or any Redis); without it limits are per process, so keep **one API instance**. Set `ADMIN_GITHUB_IDS` for the admin job screen and `SENTRY_DSN` for error tracking. Cleanup runs inside the worker; if the worker is not always running, schedule `python -m app.scripts.cleanup` externally. Details, CSP rollout and the Redis production requirements: [docs/PHASE1_OPERATIONS.md](docs/PHASE1_OPERATIONS.md).
 
 ## 5. Vercel (frontend)
 * Project root: `frontend`; framework preset Vite; build `npm run build`; output `dist`.

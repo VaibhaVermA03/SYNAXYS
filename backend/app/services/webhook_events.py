@@ -94,6 +94,17 @@ def parse_push(p: dict) -> PushEvent:
                      installation_id=_get(p, "installation.id", int, optional=True))
 
 
+_BRANCH_OK = re.compile(r"[\w./\-]{1,200}")
+
+
+def push_branch(ev: PushEvent) -> str | None:
+    """Branch name of a push to refs/heads/<name> (tags and other refs: None). Validated; never trusted as a path."""
+    if not ev.ref.startswith("refs/heads/"):
+        return None
+    b = ev.ref[len("refs/heads/"):]
+    return b if _BRANCH_OK.fullmatch(b) and ".." not in b else None
+
+
 def push_targets_default_branch(ev: PushEvent) -> bool:
     return not ev.deleted and ev.default_branch is not None and ev.ref == f"refs/heads/{ev.default_branch}" \
         and bool(_SHA.match(ev.after)) and set(ev.after) != {"0"}

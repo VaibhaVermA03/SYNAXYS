@@ -1,4 +1,4 @@
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 
@@ -43,6 +43,10 @@ class SyncOut(BaseModel):
     access_removed: int
 
 
+class ConnectIn(BaseModel):
+    workspace_id: int | None = None  # defaults to the active workspace, or the user's only workspace
+
+
 class ReviewConfigOut(BaseModel):
     require_approval: bool
     auto_publish: bool
@@ -50,6 +54,9 @@ class ReviewConfigOut(BaseModel):
     max_files: int
     max_patch_bytes: int
     index_enabled: bool
+    index_include_globs: list[str] = []
+    index_exclude_globs: list[str] = []
+    index_max_files: int | None = None
 
 
 class ReviewConfigPatch(BaseModel):
@@ -59,3 +66,6 @@ class ReviewConfigPatch(BaseModel):
     max_files: int | None = Field(None, ge=1, le=200)
     max_patch_bytes: int | None = Field(None, ge=10_000, le=1_000_000)
     index_enabled: bool | None = None
+    index_include_globs: list[Annotated[str, Field(min_length=1, max_length=200, pattern=r"^[\w.*?/\-\[\]@+]+$")]] | None = Field(None, max_length=50)  # gitignore-style globs; empty = no restriction
+    index_exclude_globs: list[Annotated[str, Field(min_length=1, max_length=200, pattern=r"^[\w.*?/\-\[\]@+]+$")]] | None = Field(None, max_length=50)
+    index_max_files: int | None = Field(None, ge=1, le=100_000)  # capped by INDEX_MAX_FILES; null = use the global limit

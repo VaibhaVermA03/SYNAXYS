@@ -1,0 +1,29 @@
+# Dependabot opens PRs for updates; it never merges. Major-version bumps are NOT proposed automatically
+# (they need a compatibility review: do them deliberately, one at a time).
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    ignore:
+      - { dependency-name: "*", update-types: ["version-update:semver-major"] }
+    groups:
+      python-minor-patch: { update-types: ["minor", "patch"] }
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule: { interval: weekly, day: monday }
+    open-pull-requests-limit: 5
+    ignore:
+      - { dependency-name: "*", update-types: ["version-update:semver-major"] }
+    groups:
+      npm-minor-patch: { update-types: ["minor", "patch"] }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly, day: monday }
+  - package-ecosystem: docker
+    directory: /backend
+    schedule: { interval: monthly }
+  - package-ecosystem: docker
+    directory: /frontend
+    schedule: { interval: monthly }

@@ -63,11 +63,11 @@ pytest (67 API/DB tests), Vitest (all frontend test files), ESLint, `vite build`
 ## F. Not implemented / known gaps
 
 **Features**
-* Related-PR navigation from search results; a branch selector in the search UI (the API accepts a branch; only the default branch is indexed).
+* (Done in Phases 2-3: related-PR links from search and the branch selector.)
 * Dismissing a finding independently of its comment; cancelling a *queued* review from the UI/API (the queue supports it, no endpoint exposes it).
 * Deleting or editing already-published GitHub comments; undoing a publish.
-* Partial indexing of huge repositories (GitHub-truncated trees are refused).
-* Teams/workspaces as a concept (access is per user, derived from GitHub permissions); email/Slack notifications; account deletion and data export; an admin UI for failed jobs and webhook deliveries.
+* (Done in Phase 3: partial/batched indexing of huge repositories; see `docs/PHASE3_INDEXING.md` for what is still not covered.)
+* (Done in Phases 1-4: workspaces, in-app notifications, account deletion and data export, admin UI for failed jobs.) Still not built: email/Slack notifications and an admin UI for webhook deliveries.
 * Deterministic scanners (SAST, dependency, secret scanning) are not integrated; AI review quality is not measured.
 * Cross-file context is mentioned in the review summary but retrieved snippets are not shown in a panel.
 

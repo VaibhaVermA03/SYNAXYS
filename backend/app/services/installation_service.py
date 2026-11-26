@@ -38,17 +38,18 @@ def sync_user_repositories(db: Session, gh: GitHubClient, user: User, user_token
             db.flush()
             seen_repo_ids.add(repo.id)
             role = "owner" if (r.get("permissions") or {}).get("admin") else "member"
-            acc = db.scalar(select(RepositoryAccess).where(RepositoryAccess.user_id == user.id, RepositoryAccess.repository_id == repo.id))
-            if acc is None:
-                db.add(RepositoryAccess(user_id=user.id, repository_id=repo.id, role=role))
-            else:
-                acc.role = role
+            if repo.workspace_id is None:  # repositories of a workspace get their access from workspace membership (workspace_service.sync_access), never from GitHub visibility
+                acc = db.scalar(select(RepositoryAccess).where(RepositoryAccess.user_id == user.id, RepositoryAccess.repository_id == repo.id))
+                if acc is None:
+                    db.add(RepositoryAccess(user_id=user.id, repository_id=repo.id, role=role))
+                else:
+                    acc.role = role
             repo_count += 1
 
         # Revocation: drop access to repos in this installation that GitHub no longer grants this user.
         stale = db.scalars(
             select(RepositoryAccess).join(Repository, Repository.id == RepositoryAccess.repository_id)
-            .where(RepositoryAccess.user_id == user.id, Repository.installation_id == row.id,
+            .where(RepositoryAccess.user_id == user.id, Repository.installation_id == row.id, Repository.workspace_id.is_(None),
                    RepositoryAccess.repository_id.not_in(seen_repo_ids or {-1}))).all()
         for a in stale:
             db.delete(a)

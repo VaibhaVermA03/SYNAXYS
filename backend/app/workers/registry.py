@@ -5,7 +5,9 @@ from importlib import import_module
 _SPECS = [("review", "app.workers.review_worker", "handle_review"),
           ("publish", "app.workers.publish_worker", "handle_publish"),
           ("index", "app.workers.indexing_worker", "handle_index"),
-          ("index_delete", "app.workers.indexing_worker", "handle_index_delete")]
+          ("index_delete", "app.workers.indexing_worker", "handle_index_delete"),
+          ("index_branch_delete", "app.workers.indexing_worker", "handle_index_branch_delete"),
+          ("account_export", "app.workers.account_worker", "handle_account_export")]
 
 
 def load_handlers() -> dict:

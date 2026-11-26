@@ -64,7 +64,7 @@ export function AuthProvider({ children }) {
   const value = useMemo(() => {
     const unauth = q.error instanceof ApiError && q.error.status === 401
     const status = signedOut ? 'unauthenticated' : q.isPending ? 'loading' : q.data ? 'authenticated' : unauth || q.data === null ? 'unauthenticated' : 'error'
-    return { status, user: q.data?.user ?? null, integrations: q.data?.integrations ?? null, error: q.error, refetch: q.refetch, logout }
+    return { status, user: q.data?.user ?? null, integrations: q.data?.integrations ?? null, isAdmin: q.data?.is_admin === true, error: q.error, refetch: q.refetch, logout }
   }, [signedOut, q.isPending, q.data, q.error, q.refetch, logout])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

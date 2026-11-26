@@ -120,7 +120,7 @@ Details and the honest status table: [TESTING.md](TESTING.md).
 ```
 backend/app/        api/ (routers), core/ (config, security, encryption, logging), models/, schemas/, services/ (GitHub, diff, review,
                     publish, indexing, search, queue), agents/ (prompts, policies, review pipeline, LLM adapters), workers/, scripts/, tests/
-backend/migrations/ Alembic (0001 baseline from model metadata, 0002 indexed_files)
+backend/migrations/ Alembic (0001 baseline from model metadata, 0002 indexed_files, 0003-0005 retention indexes, review workflow, branch indexing)
 backend/tools/      run_pure_tests.py, check_docs.py, check_repo.py, check_names.py, check_imports.py, gen_api_docs.py
 frontend/src/       app/ (providers), components/, features/ (auth, dashboard, repositories, pull-requests, reviews, rules, code-search, settings), lib/, services/
 frontend/e2e/       Playwright specs + stateful API mock

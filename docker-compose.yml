@@ -12,6 +12,7 @@ x-backend-env: &backend-env
     BACKEND_URL: http://localhost:8000
     GITHUB_REDIRECT_URI: http://localhost:8080/api/v1/auth/github/callback   # register this callback URL in your GitHub App
     TRUST_PROXY_HEADERS: "true"                                              # all traffic arrives through the bundled nginx
+    REDIS_URL: redis://redis:6379/0                                          # shared rate-limit counters (see docs/PHASE1_OPERATIONS.md)
 
 services:
   db:
@@ -28,12 +29,22 @@ services:
       timeout: 5s
       retries: 10
 
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no", "--maxmemory", "64mb", "--maxmemory-policy", "volatile-lru"]   # counters only; losing them is harmless
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build: ./backend
     <<: *backend-env
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --proxy-headers"
     depends_on:
       db: { condition: service_healthy }
+      redis: { condition: service_healthy }
     ports:
       - "8000:8000"
 

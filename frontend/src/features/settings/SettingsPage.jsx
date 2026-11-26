@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, LogOut, Moon, Plug, Sun } from 'lucide-react'
+import { KeyRound, LogOut, Moon, Plug, Sun, User, Users } from 'lucide-react'
 import { Badge, Button, Card, ConfirmDialog, ErrorState, Skeleton } from '../../components/ui'
 import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../app/AuthProvider'
@@ -15,7 +15,7 @@ const LABELS = {
   'github.credentials_revoked': 'Revoked stored GitHub credentials', 'repository.connect': 'Enabled reviewing for a repository', 'repository.disconnect': 'Disabled reviewing for a repository',
   'repository.config_update': 'Changed repository review policy', 'repository.index_requested': 'Requested indexing', 'repository.indexed': 'Repository indexed',
   'review.requested': 'Requested a review', 'review.retry': 'Retried a review', 'review.approve': 'Approved review comments', 'review.publish': 'Published comments to GitHub',
-  'comment.update': 'Edited or dismissed a comment', 'rule.create': 'Created a review rule', 'rule.update': 'Updated a review rule', 'rule.delete': 'Deleted a review rule',
+  'comment.update': 'Edited or cancelled a comment', 'finding.dismiss': 'Dismissed a finding', 'finding.restore': 'Restored a finding', 'review.cancel': 'Cancelled a queued review', 'comment.github_delete': 'Deleted a comment from GitHub', 'rule.create': 'Created a review rule', 'rule.update': 'Updated a review rule', 'rule.delete': 'Deleted a review rule',
 }
 
 export default function SettingsPage() {
@@ -50,6 +50,18 @@ export default function SettingsPage() {
         <h2 className="flex items-center gap-2 font-semibold"><Plug className="h-4 w-4" aria-hidden />Integrations and review policy</h2>
         <p className="text-sm text-muted">See which services are configured, and choose per repository how review comments are published.</p>
         <Link to="/app/settings/integrations"><Button variant="secondary">Open integration settings</Button></Link>
+      </Card>
+
+      <Card className="space-y-2 p-4">
+        <h2 className="flex items-center gap-2 font-semibold"><Users className="h-4 w-4" aria-hidden />Workspaces</h2>
+        <p className="text-sm text-muted">Create workspaces, invite people, manage roles and see workspace activity.</p>
+        <Link to="/app/settings/workspaces"><Button variant="secondary">Manage workspaces</Button></Link>
+      </Card>
+
+      <Card className="space-y-2 p-4">
+        <h2 className="flex items-center gap-2 font-semibold"><User className="h-4 w-4" aria-hidden />Account</h2>
+        <p className="text-sm text-muted">Export your data or delete your account.</p>
+        <Link to="/app/settings/account"><Button variant="secondary">Open account settings</Button></Link>
       </Card>
 
       <Card className="space-y-2 p-4">

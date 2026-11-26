@@ -22,3 +22,4 @@ class MeOut(BaseModel):
     user: UserOut
     csrf_token: str
     integrations: IntegrationStatus
+    is_admin: bool = False

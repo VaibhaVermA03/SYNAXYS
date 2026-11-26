@@ -30,7 +30,7 @@ def _tables_and_fks():
 
 def test_model_foreign_keys_reference_existing_tables_and_ondelete_set():
     tables, fks = _tables_and_fks()
-    assert len(tables) == 18
+    assert len(tables) == 25  # 18 + branch_index_states + indexing_batches (Phase 3) + workspaces, workspace_members, workspace_invitations, notifications, data_exports (Phase 4)
     for fk in fks:
         assert fk.split(".")[0] in tables, fk
 

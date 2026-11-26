@@ -1,0 +1,59 @@
+# Security scanning. Runs on pull requests, pushes to main and weekly. No repository secrets are used anywhere in this
+# file, and it never uses pull_request_target, so code from a fork PR is never executed with privileged credentials.
+# Tool choice (no overlap with existing checks): Semgrep = SAST (python, javascript/react), Gitleaks = secrets incl. git history,
+# Dependabot (.github/dependabot.yml) = dependency update PRs. pip-audit / npm audit stay in ci.yml as the vulnerability scanners.
+name: Security
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: "17 3 * * 1"   # Mondays 03:17 UTC
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: security-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  semgrep:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write   # upload SARIF to the Security tab (needs GitHub code scanning; the artifact is always kept)
+    container:
+      image: semgrep/semgrep:latest   # TODO: pin to a digest/version once chosen (docs/PHASE1_OPERATIONS.md)
+    steps:
+      - uses: actions/checkout@v4
+      # Report everything, but only ERROR-severity findings fail the build (WARNING/INFO are reviewed from the report).
+      - name: Semgrep scan
+        run: |
+          semgrep scan --metrics=off --config p/python --config p/javascript --config p/react --config p/owasp-top-ten \
+            --exclude node_modules --exclude dist --exclude "backend/app/tests" --exclude "frontend/e2e" \
+            --sarif --output semgrep.sarif --text --output semgrep.txt || true
+          semgrep scan --metrics=off --config p/python --config p/javascript --config p/react --config p/owasp-top-ten \
+            --exclude node_modules --exclude dist --exclude "backend/app/tests" --exclude "frontend/e2e" \
+            --severity ERROR --error --quiet
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semgrep-report
+          path: |
+            semgrep.sarif
+            semgrep.txt
+          retention-days: 30
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always() && github.event_name != 'pull_request'
+        continue-on-error: true   # fails harmlessly on private repos without GitHub Advanced Security
+        with: { sarif_file: semgrep.sarif }
+
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }   # full history: a secret removed in a later commit is still a leaked secret
+      - uses: gitleaks/gitleaks-action@v2   # free for personal accounts; organisations need a GITLEAKS_LICENSE secret
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml

@@ -62,8 +62,8 @@ def update_comment(db: Session, user_id: int, review: CodeReview, pr: PullReques
     c = next((x for x in review_comments(db, review) if x.id == comment_id), None)
     if c is None:
         raise NotFound("Comment not found")
-    if c.state in ("published", "publishing"):
-        raise Conflict("This comment is already published or being published and can no longer be changed.", code="comment_locked")
+    if c.state in ("published", "publishing", "deleted"):
+        raise Conflict("This comment is already published, being published or deleted from GitHub and can no longer be changed.", code="comment_locked")
     if body is not None:
         text = body.strip()
         if not text:

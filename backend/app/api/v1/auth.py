@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Request, Response
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.api.deps import SESSION_COOKIE, check_origin, current_session, get_github_client, rate_limit, settings_dep
+from app.api.deps import SESSION_COOKIE, check_origin, current_session, get_github_client, is_platform_admin, rate_limit, settings_dep
 from app.core.auth_tokens import csrf_token, new_pkce_pair, sign_payload, verify_csrf, verify_payload
 from app.core.config import Settings
 from app.core.exceptions import AppError, Forbidden, NotConfigured
@@ -88,7 +88,8 @@ def github_callback(request: Request, code: str | None = None, state: str | None
 def me(auth=Depends(current_session), s: Settings = Depends(settings_dep)):
     user, sess = auth
     return MeOut(user=UserOut(id=user.id, login=user.login, name=user.name, avatar_url=user.avatar_url),
-                 csrf_token=csrf_token(s.app_secret_key, sess.csrf_secret), integrations=_status(s))
+                 csrf_token=csrf_token(s.app_secret_key, sess.csrf_secret), integrations=_status(s),
+                 is_admin=is_platform_admin(user, s))
 
 
 @router.post("/logout", status_code=204)
@@ -119,6 +120,8 @@ def demo_login(request: Request, db: Session = Depends(get_db), s: Settings = De
     user = db.scalar(select(User).where(User.github_id == -1))
     if user is None:
         raise NotFound("Demo data not found. Run: python -m app.db.seed", code="demo_not_seeded")
+    from app.services import workspace_service
+    workspace_service.ensure_personal_workspace(db, user)
     raw = auth_service.create_session(db, s, user, request.headers.get("user-agent"))
     db.add(AuditLog(user_id=user.id, action="auth.demo_login"))
     db.commit()

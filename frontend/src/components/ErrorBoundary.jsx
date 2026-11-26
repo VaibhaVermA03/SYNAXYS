@@ -1,10 +1,11 @@
 import { Component } from 'react'
+import { captureError } from '../lib/monitoring'
 
 // Last line of defence against a render crash: show a recoverable message instead of a blank page.
 export default class ErrorBoundary extends Component {
   state = { error: null }
   static getDerivedStateFromError(error) { return { error } }
-  componentDidCatch(error, info) { console.error('UI error', error, info?.componentStack) }
+  componentDidCatch(error, info) { console.error('UI error', error, info?.componentStack); captureError(error, info?.componentStack) }
   render() {
     if (!this.state.error) return this.props.children
     return (

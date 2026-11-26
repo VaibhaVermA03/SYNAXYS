@@ -9,8 +9,13 @@ from app.core.exceptions import Forbidden, NotFound
 from app.models import CodeReview, PullRequest, Repository, RepositoryAccess, User
 
 
-def accessible_repo_ids(db: Session, user: User):
-    return select(RepositoryAccess.repository_id).where(RepositoryAccess.user_id == user.id)
+def accessible_repo_ids(db: Session, user: User, workspace_id: int | None = None):
+    """Repositories the user may see. With workspace_id (the active workspace) only that workspace's repositories; the membership itself was already
+    verified by active_workspace(), and repository_access only contains rows for members, so this can never widen access."""
+    q = select(RepositoryAccess.repository_id).where(RepositoryAccess.user_id == user.id)
+    if workspace_id is not None:
+        q = q.where(RepositoryAccess.repository_id.in_(select(Repository.id).where(Repository.workspace_id == workspace_id)))
+    return q
 
 
 def get_repo_for_user(db: Session, user: User, repo_id: int, *, require_owner: bool = False) -> Repository:

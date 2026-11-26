@@ -1,0 +1,11 @@
+# Gitleaks configuration: default rules plus an allow-list for known test placeholders only.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documented placeholders used by tests and examples (not real credentials)"
+paths = [
+  '''backend/app/tests/.*''',
+  '''frontend/e2e/.*''',
+  '''.*\.example$''',
+]

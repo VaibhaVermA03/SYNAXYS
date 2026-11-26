@@ -1,9 +1,10 @@
 import { Link, useParams } from 'react-router-dom'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, CheckCheck, RotateCcw, Send } from 'lucide-react'
+import { ArrowLeft, CheckCheck, RotateCcw, Send, XCircle } from 'lucide-react'
 import { Badge, Button, Card, ConfirmDialog, ErrorState, Skeleton, StatusBadge } from '../../components/ui'
 import CommentActions from '../../components/code-review/CommentActions'
+import FindingActions from '../../components/code-review/FindingActions'
 import { useToast } from '../../components/ui/Toast'
 import { CategoryBreakdown, FindingGroups, PrLink, SeverityCounts } from '../../components/code-review/ReviewParts'
 import { describeError } from '../../lib/api'
@@ -23,9 +24,12 @@ export default function ReviewDetailPage() {
   const { reviewId } = useParams()
   const qc = useQueryClient()
   const { toast } = useToast()
-  const q = useQuery({ queryKey: ['review', reviewId], queryFn: () => reviewService.get(reviewId),
+  const [showDismissed, setShowDismissed] = useState(false)
+  const q = useQuery({ queryKey: ['review', reviewId, { dismissed: showDismissed }], queryFn: () => reviewService.get(reviewId, showDismissed ? { include_dismissed: true } : undefined),
+    placeholderData: (p) => p,
     refetchInterval: (query) => (['queued', 'processing'].includes(query.state.data?.status) ? 4000 : false) })
   const [confirmPublish, setConfirmPublish] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
   const attempts = useQuery({ queryKey: ['review-attempts', reviewId], queryFn: () => reviewService.attempts(reviewId) })
   const refreshAll = () => { qc.invalidateQueries({ queryKey: ['review', reviewId] }); qc.invalidateQueries({ queryKey: ['review-attempts', reviewId] }); qc.invalidateQueries({ queryKey: ['reviews'] }) }
   const approveAll = useMutation({ mutationFn: () => reviewService.approve(reviewId, null), onSuccess: (r) => { toast(`${r.approved} comment(s) approved.`, 'success'); refreshAll() }, onError: (e) => toast(describeError(e), 'error') })
@@ -38,6 +42,11 @@ export default function ReviewDetailPage() {
     mutationFn: () => reviewService.retry(reviewId),
     onSuccess: () => { toast('Retry queued.', 'success'); qc.invalidateQueries({ queryKey: ['review', reviewId] }); qc.invalidateQueries({ queryKey: ['reviews'] }) },
     onError: (e) => toast(describeError(e), 'error'),
+  })
+  const cancel = useMutation({
+    mutationFn: () => reviewService.cancel(reviewId),
+    onSuccess: () => { setConfirmCancel(false); toast('Review cancelled. It will not run.', 'success'); refreshAll() },
+    onError: (e) => { setConfirmCancel(false); toast(describeError(e), 'error'); refreshAll() },  // e.g. a worker picked it up first
   })
   if (q.isPending) return <Skeleton className="h-48" />
   if (q.isError) return <Card><ErrorState message={q.error.status === 404 ? 'Review not found.' : describeError(q.error)} onRetry={q.refetch} /></Card>
@@ -60,8 +69,16 @@ export default function ReviewDetailPage() {
             {r.can_retry && <Button size="sm" variant="secondary" loading={retry.isPending} onClick={() => retry.mutate()}><RotateCcw className="h-4 w-4" aria-hidden />Retry review</Button>}
           </div>
         )}
+        {r.status === 'queued' && r.can_cancel && (
+          <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3 text-sm">
+            <span>Waiting in the queue — nothing has been sent to GitHub.</span>
+            <Button size="sm" variant="secondary" onClick={() => setConfirmCancel(true)}><XCircle className="h-4 w-4" aria-hidden />Cancel review</Button>
+          </div>
+        )}
         {r.summary && <p className="text-sm">{r.summary}</p>}
-        <div className="flex flex-wrap items-center gap-3"><SeverityCounts bySeverity={r.by_severity} /><CategoryBreakdown byCategory={r.by_category} /></div>
+        <div className="flex flex-wrap items-center gap-3"><SeverityCounts bySeverity={r.by_severity} /><CategoryBreakdown byCategory={r.by_category} />
+          {(r.dismissed_count ?? 0) > 0 && <Button size="sm" variant="ghost" aria-pressed={showDismissed} onClick={() => setShowDismissed((v) => !v)}>{showDismissed ? 'Hide' : 'Show'} dismissed ({r.dismissed_count})</Button>}
+        </div>
         <p className="text-xs text-muted">Policy: {r.require_approval ? 'comments need explicit approval by a repository admin before publishing' : 'approval not required'}{r.auto_publish ? ' · auto-publish enabled by a repository admin' : ''}. Published reviews are posted as a plain comment review — SYNAXYS never approves or requests changes.</p>
         {r.status === 'completed' && !r.is_demo && (
           <div className="flex flex-wrap items-center gap-3 rounded-lg border border-border p-3 text-sm" role="group" aria-label="Publishing">
@@ -74,21 +91,29 @@ export default function ReviewDetailPage() {
         )}
       </Card>
       {['queued', 'processing'].includes(r.status) ? <Card><p className="p-4 text-sm text-muted">This review is {r.status}. Results will appear automatically.</p></Card>
-        : <Card className="p-4"><FindingGroups findings={r.findings_list} renderExtra={(f) => (f.comment ? <CommentActions reviewId={r.id} comment={f.comment} canManage={r.can_manage} /> : null)} /></Card>}
+        : <Card className="p-4"><FindingGroups findings={r.findings_list} renderExtra={(f) => (
+          <>
+            {r.status === 'completed' && <FindingActions reviewId={r.id} finding={f} canManage={r.can_manage} />}
+            {f.comment ? <CommentActions reviewId={r.id} comment={f.comment} canManage={r.can_manage} /> : null}
+          </>
+        )} /></Card>}
       {attempts.data?.length > 0 && (
         <Card className="p-4">
           <h3 className="mb-2 font-semibold">Publishing history</h3>
           <ul className="space-y-1 text-xs">
             {attempts.data.map((a) => (
-              <li key={a.id} className="flex flex-wrap gap-2"><Badge tone={a.status === 'success' ? 'ok' : a.status === 'failed' ? 'danger' : 'neutral'}>{a.status}</Badge>
+              <li key={a.id} className="flex flex-wrap gap-2"><Badge tone={a.status === 'success' ? 'ok' : a.status === 'failed' ? 'danger' : 'neutral'}>{a.action === 'delete' ? `delete · ${a.status}` : a.status}</Badge>
                 <span>{formatDate(a.created_at)}</span><span className="text-muted">{a.actor || 'system'}{a.http_status ? ` · HTTP ${a.http_status}` : ''}{a.error ? ` · ${a.error}` : ''}</span></li>
             ))}
           </ul>
         </Card>
       )}
       <ConfirmDialog open={confirmPublish} title="Publish to GitHub?" confirmLabel="Publish" loading={publish.isPending}
-        description={`This posts ${r.approved_comments} approved comment(s) and the review summary on the pull request as a comment-only review. They will be visible to everyone with access to the repository and cannot be unpublished from SYNAXYS.`}
+        description={`This posts ${r.approved_comments} approved comment(s) and the review summary on the pull request as a comment-only review. They will be visible to everyone with access to the repository. A repository admin can later delete an individual comment from GitHub here.`}
         onCancel={() => setConfirmPublish(false)} onConfirm={() => publish.mutate()} />
+      <ConfirmDialog open={confirmCancel} title="Cancel this review?" confirmLabel="Cancel review" danger loading={cancel.isPending}
+        description="The review is removed from the queue and will not run. This only works while it has not started; nothing is posted to GitHub. You can retry it later."
+        onCancel={() => setConfirmCancel(false)} onConfirm={() => cancel.mutate()} />
     </div>
   )
 }

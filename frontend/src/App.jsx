@@ -13,6 +13,11 @@ import CodeSearchPage from './features/code-search/CodeSearchPage'
 import RulesPage from './features/rules/RulesPage'
 import SettingsPage from './features/settings/SettingsPage'
 import IntegrationsPage from './features/settings/IntegrationsPage'
+import AdminJobsPage from './features/admin/AdminJobsPage'
+import WorkspacesPage from './features/workspaces/WorkspacesPage'
+import InvitationPage from './features/workspaces/InvitationPage'
+import NotificationsPage from './features/notifications/NotificationsPage'
+import AccountPage from './features/settings/AccountPage'
 
 import NotFoundPage from './pages/NotFoundPage'
 
@@ -36,6 +41,11 @@ export default function App() {
           <Route path="rules" element={<RulesPage />} />
           <Route path="settings" element={<SettingsPage />} />
           <Route path="settings/integrations" element={<IntegrationsPage />} />
+          <Route path="admin/jobs" element={<AdminJobsPage />} />
+          <Route path="settings/workspaces" element={<WorkspacesPage />} />
+          <Route path="settings/account" element={<AccountPage />} />
+          <Route path="notifications" element={<NotificationsPage />} />
+          <Route path="invitations/:token" element={<InvitationPage />} />
           <Route path="*" element={<NotFoundPage />} />
         </Route>
       </Route>

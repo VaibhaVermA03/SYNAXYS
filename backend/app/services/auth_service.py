@@ -33,6 +33,10 @@ def upsert_user_from_github(db: Session, s: Settings, gh_user: dict, access_toke
         db.add(ident)
     ident.access_token_enc = encrypt_secret(access_token, s.encryption_key)
     ident.scopes = scopes
+    from app.services import workspace_service  # local import: workspace_service imports auth_service helpers lazily too
+    workspace_service.ensure_personal_workspace(db, user)  # everybody belongs to at least one workspace
+    db.flush()
+    workspace_service.notify_pending_invitations(db, user)  # invitations sent before this person had an account
     db.commit()
     return user
 

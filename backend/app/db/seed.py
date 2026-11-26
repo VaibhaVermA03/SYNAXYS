@@ -32,6 +32,9 @@ def seed(login: str = "demo-user", github_id: int = -1) -> None:
         repo.config = ReviewConfiguration()
         db.add(repo); db.flush()
         db.add(RepositoryAccess(user_id=user.id, repository_id=repo.id, role="owner"))
+        from app.services import workspace_service
+        demo_ws = workspace_service.create_workspace(db, user, "Demo workspace", commit=False)
+        repo.workspace_id = demo_ws.id
         pr = PullRequest(repository_id=repo.id, number=1, title="[DEMO] Add user lookup by name", author_login="demo-dev",
                          state="open", base_branch="main", head_branch="feature/lookup", head_sha="demo000sha",
                          is_demo=True, demo_patches={"app/users.py": DEMO_PATCH})

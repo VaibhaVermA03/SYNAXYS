@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from app.core.security import redact_secrets
 
 _SKIP_PATH_PARTS = ("node_modules/", "vendor/", "dist/", "build/", ".git/", "__pycache__/", "venv/", ".venv/", "target/", "coverage/")
-_SKIP_NAMES = {"package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "Pipfile.lock", "Cargo.lock", "go.sum", "composer.lock", "uv.lock"}
+_SKIP_NAMES = {".gitignore", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "Pipfile.lock", "Cargo.lock", "go.sum", "composer.lock", "uv.lock"}
 _SKIP_SUFFIX = (".min.js", ".min.css", ".map", ".snap", ".lock")
 _SECRET_FILES = {".env", "id_rsa", "id_ed25519", "credentials", ".npmrc", ".pypirc"}
 _SECRET_SUFFIX = (".pem", ".key", ".p12", ".pfx", ".jks", ".keystore")

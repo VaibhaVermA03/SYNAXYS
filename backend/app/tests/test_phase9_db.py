@@ -109,11 +109,9 @@ def test_incremental_reindex_only_touches_changes_and_removes_stale_vectors(idx)
     assert sum(1 for v in idx.store.data[f"repo-{idx.repo_id}"].values() if v["metadata"]["path"] == "app/db.py") == 1   # no stale chunks of old db.py
 
 
-def test_failures_are_recorded_visibly_and_truncated_trees_refused(idx):
-    from app.core.exceptions import BadRequest
-    with pytest.raises(BadRequest): run(idx, FILES, gh=FakeGH(FILES, truncated=True))
-    status, _, err, _ = repo_state(idx)
-    assert status == "failed" and "too large" in err and idx.store.data == {}
+def test_failures_are_recorded_visibly(idx):
+    # Phase 3: a truncated recursive tree is no longer refused (it is listed directory by directory, see test_phase15_db.py);
+    # this test keeps the failure-recording contract.
     class Boom(FakeGH):
         def get_blob(self, *a, **k): raise GitHubAPIError(502)
     with pytest.raises(GitHubAPIError): run(idx, FILES, gh=Boom(FILES))

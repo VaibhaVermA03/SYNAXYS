@@ -19,7 +19,8 @@
 | Review stays *queued* with "Will retry: …" | A transient or configuration error; the note shows the sanitized cause. Permanent errors (e.g. OpenAI key rejected) turn it *failed* with a Retry button. |
 | `openai_not_configured` / `pinecone_not_configured` (503) | Set the keys and restart both API and worker (see Settings → Integrations). |
 | Indexing fails with *dimension … does not match* | `EMBEDDING_DIMENSIONS` ≠ Pinecone index dimension; recreate the index or fix the setting, then re-index. |
-| Indexing fails: *tree_truncated* | Repository too large for GitHub's recursive tree API; not supported in this version. |
+| Index shows *partial* | Some files failed or the per-run embedding budget was reached: open **Branches** on the repository and press **Continue** (only the missing work runs). See `docs/PHASE3_INDEXING.md`. |
+| Branch shows *missing* | GitHub no longer has that branch (deleted, renamed) or the app lost access. Nothing was deleted; remove the branch index or restore access. |
 | Publish says *review_stale* | The PR received new commits; run a new review (line numbers would no longer match). |
 | Some comments end *failed* after publishing | GitHub rejected that line position (422); other comments were posted individually. Edit/dismiss and re-review. |
 | `github_permission_denied` on publish | Grant the App **Pull requests: Read & write**, then accept the new permission on the installation. |

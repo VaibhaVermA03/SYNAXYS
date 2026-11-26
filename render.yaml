@@ -8,6 +8,14 @@ databases:
     user: synaxys
 
 services:
+  # Redis-compatible Key Value store for distributed rate limiting. UNVERIFIED against Render (never applied): check the current
+  # blueprint syntax/plan names in the Render docs. Region must match the API so the internal URL works. Losing its data is harmless.
+  - type: keyvalue
+    name: synaxys-redis
+    plan: free
+    maxmemoryPolicy: volatile-lru
+    ipAllowList: []            # internal connections only
+
   - type: web
     name: synaxys-api
     runtime: python
@@ -37,6 +45,10 @@ services:
       - { key: PINECONE_API_KEY, sync: false }
       - { key: PINECONE_INDEX_NAME, value: synaxys-code }
       - { key: EMBEDDING_DIMENSIONS, value: "1536" }
+      - { key: REDIS_URL, fromService: { type: keyvalue, name: synaxys-redis, property: connectionString } }
+      - { key: ADMIN_GITHUB_IDS, sync: false }      # comma-separated numeric GitHub user IDs of platform admins
+      - { key: SENTRY_DSN, sync: false }            # backend Sentry project DSN (optional)
+      - { key: SENTRY_RELEASE, sync: false }        # optional, e.g. the git commit SHA
 
   - type: worker
     name: synaxys-worker

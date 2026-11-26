@@ -58,6 +58,9 @@ export async function installMockApi(page, st = makeState()) {
     if (path === '/code-search/query') return json(route, { results: [{ id: 'a#0001', score: 0.82, repository: 'alice/shop', repository_id: 1, path: 'app/db.py', start_line: 3, end_line: 9, language: 'python', branch: 'main', commit: 'abc',
       snippet: 'def open_connection(pool):\n    return pool.acquire()', explanation: 'strong semantic similarity (0.82); code mentions pool', github_url: 'https://github.com/alice/shop/blob/abc/app/db.py#L3-L9' }], searched_repositories: ['alice/shop'], backend: 'Pinecone', note: null })
     if (path === '/review-rules') return json(route, [])
+    if (path === '/workspaces') return json(route, [{ id: 1, name: "alice's workspace", role: 'owner', invite_policy: 'admin', members: 1, repositories: 1 }])
+    if (path === '/notifications/unread-count') return json(route, { unread: 0 })
+    if (path === '/code-search/branches') return json(route, { branches: [{ branch: 'main', repositories: 1, is_default_somewhere: true }] })
     return err(route, 404, 'not_found', `e2e mock has no route for ${m} ${path}`)
   })
   return st

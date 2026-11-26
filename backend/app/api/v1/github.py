@@ -1,9 +1,10 @@
 """Installations, repository listing (scoped by RepositoryAccess), sync, connect/disconnect."""
+from cryptography.fernet import InvalidToken
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import current_user, get_github_client, rate_limit, settings_dep
+from app.api.deps import active_workspace, current_user, get_github_client, rate_limit, settings_dep
 from app.core.config import Settings
 from app.core.encryption import decrypt_secret
 from app.core.exceptions import BadRequest, Conflict
@@ -11,8 +12,8 @@ from app.db.session import get_db
 from app.models import (AuditLog, GitHubInstallation, OAuthIdentity, Repository, RepositoryAccess,
                         ReviewConfiguration, User)
 from app.repositories.access import get_repo_for_user
-from app.schemas.github import (InstallationOut, InstallationsOut, RepositoryOut, RepositoryPage, ReviewConfigOut, ReviewConfigPatch, SyncOut)
-from app.services import job_queue
+from app.schemas.github import (ConnectIn, InstallationOut, InstallationsOut, RepositoryOut, RepositoryPage, ReviewConfigOut, ReviewConfigPatch, SyncOut)
+from app.services import job_queue, workspace_service
 from app.services.github_http import GitHubAPIError
 from app.services.github_service import GitHubClient
 from app.services.installation_service import sync_user_repositories
@@ -42,9 +43,11 @@ def installations(db: Session = Depends(get_db), user: User = Depends(current_us
 
 @router.get("/repositories", response_model=RepositoryPage)
 def list_repositories(q: str | None = None, connected: bool | None = None, page: int = Query(1, ge=1),
-                      page_size: int = Query(20, ge=1, le=100), db: Session = Depends(get_db), user: User = Depends(current_user)):
+                      page_size: int = Query(20, ge=1, le=100), db: Session = Depends(get_db), user: User = Depends(current_user), ws: int | None = Depends(active_workspace)):
     base = (select(Repository, RepositoryAccess.role).join(RepositoryAccess, RepositoryAccess.repository_id == Repository.id)
             .where(RepositoryAccess.user_id == user.id))
+    if ws is not None:  # the active workspace's repositories, plus repositories not yet connected to any workspace (so they can be connected into it)
+        base = base.where(or_(Repository.workspace_id == ws, Repository.workspace_id.is_(None)))
     if q:
         base = base.where(Repository.full_name.ilike(f"%{q.replace('%', '').replace('_', '')}%"))
     if connected is not None:
@@ -62,6 +65,9 @@ def sync(db: Session = Depends(get_db), user: User = Depends(current_user), s: S
         raise Conflict("GitHub credentials are not available. Sign in with GitHub again.", code="github_reauth_required")
     try:
         token = decrypt_secret(ident.access_token_enc, s.encryption_key)
+    except InvalidToken:  # stored with a key that is no longer configured (e.g. after an ENCRYPTION_KEY change): ask for a fresh sign-in, not a 500
+        raise Conflict("GitHub credentials could not be read. Sign in with GitHub again.", code="github_reauth_required")
+    try:
         result = sync_user_repositories(db, gh, user, token)
     except GitHubAPIError as e:
         if e.status in (401, 403):  # expired/revoked user token
@@ -73,8 +79,12 @@ def sync(db: Session = Depends(get_db), user: User = Depends(current_user), s: S
 
 
 @router.post("/repositories/{repository_id}/connect", response_model=RepositoryOut)
-def connect(repository_id: int, db: Session = Depends(get_db), user: User = Depends(current_user)):
+def connect(repository_id: int, body: ConnectIn | None = None, db: Session = Depends(get_db), user: User = Depends(current_user), ws: int | None = Depends(active_workspace)):
     repo = get_repo_for_user(db, user, repository_id, require_owner=True)  # GitHub admin required
+    wid = repo.workspace_id or (body.workspace_id if body and body.workspace_id else None) or ws or workspace_service.default_workspace_id(db, user)
+    if wid is None:
+        raise BadRequest("Choose the workspace to connect this repository to.", code="workspace_required")
+    workspace_service.assign_repository(db, user, repo, wid)  # needs admin rights in that workspace; access becomes workspace-derived
     if repo.config is None:
         repo.config = ReviewConfiguration()
     repo.is_enabled = True
@@ -109,7 +119,8 @@ def _cfg_out(repo: Repository) -> ReviewConfigOut:
     c = repo.config or ReviewConfiguration()
     return ReviewConfigOut(require_approval=c.require_approval if c.require_approval is not None else True, auto_publish=bool(c.auto_publish),
                            allowed_actions=list(c.allowed_actions or ["opened", "synchronize", "reopened"]), max_files=c.max_files or 50,
-                           max_patch_bytes=c.max_patch_bytes or 200_000, index_enabled=True if c.index_enabled is None else c.index_enabled)
+                           max_patch_bytes=c.max_patch_bytes or 200_000, index_enabled=True if c.index_enabled is None else c.index_enabled,
+                           index_include_globs=list(c.index_include_globs or []), index_exclude_globs=list(c.index_exclude_globs or []), index_max_files=c.index_max_files)
 
 
 @router.get("/repositories/{repository_id}/config", response_model=ReviewConfigOut)

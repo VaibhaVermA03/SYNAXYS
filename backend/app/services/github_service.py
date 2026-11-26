@@ -87,6 +87,12 @@ class GitHubClient:
             raise GitHubAPIError(400, "OAuth code exchange was rejected")
         return res.body
 
+    def revoke_user_token(self, token: str) -> None:
+        """Revoke ONE OAuth user token at GitHub (account deletion). Needs the app's client id + secret."""
+        if not self.s.github_oauth_configured:
+            raise NotConfigured("GitHub OAuth is not configured", code="github_oauth_not_configured")
+        self._request("DELETE", f"{API}/applications/{self.s.github_client_id}/token", auth=(self.s.github_client_id, self.s.github_client_secret), json={"access_token": token}, max_attempts=2)
+
     def get_user(self, token: str) -> dict:
         return self.get("/user", token).body
 
@@ -127,6 +133,14 @@ class GitHubClient:
                             json={**comment, "commit_id": commit_id})
         return res.body
 
+    def get_review_comment(self, token: str, full_name: str, comment_id: int) -> dict:
+        """One pull request review comment (404 = it does not exist (any more))."""
+        return self._request("GET", f"{API}/repos/{self._repo(full_name)}/pulls/comments/{int(comment_id)}", token=token).body
+
+    def delete_review_comment(self, token: str, full_name: str, comment_id: int) -> None:
+        """DELETE a pull request review comment (204). A 404 means it was already gone; callers verify with get_review_comment."""
+        self._request("DELETE", f"{API}/repos/{self._repo(full_name)}/pulls/comments/{int(comment_id)}", token=token)
+
     # ---- repository content (indexing)
     def get_branch_head(self, token: str, full_name: str, branch: str) -> str:
         if not _BRANCH_RE.fullmatch(branch) or ".." in branch:
@@ -138,6 +152,21 @@ class GitHubClient:
         if not _SHA_RE.fullmatch(commit_sha):
             raise GitHubAPIError(400, "Invalid commit sha")
         return self.get(f"/repos/{self._repo(full_name)}/git/trees/{commit_sha}", token, params={"recursive": "1"}).body
+
+    def get_tree_level(self, token: str, full_name: str, tree_sha: str) -> dict:
+        """ONE directory level (non-recursive). Used to list repositories whose recursive tree is truncated; tree_sha may be a commit or a tree sha."""
+        if not _SHA_RE.fullmatch(tree_sha):
+            raise GitHubAPIError(400, "Invalid tree sha")
+        return self.get(f"/repos/{self._repo(full_name)}/git/trees/{tree_sha}", token).body
+
+    def list_branches(self, token: str, full_name: str, limit: int = 300) -> list[str]:
+        """Branch names (first `limit`), for choosing which branches to index."""
+        names: list[str] = []
+        for b in self.paginate(f"/repos/{self._repo(full_name)}/branches", token, max_pages=3):
+            names.append(str(b["name"]))
+            if len(names) >= limit:
+                break
+        return names
 
     def get_blob(self, token: str, full_name: str, blob_sha: str, max_bytes: int = 1_000_000) -> bytes | None:
         """Raw bytes, or None when the blob is larger than max_bytes (never loaded into memory)."""

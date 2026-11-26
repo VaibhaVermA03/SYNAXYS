@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
-import { ClipboardCheck, Folder, GitPullRequest, LayoutGrid, LogOut, PanelLeft, Search, Settings, SlidersHorizontal, X } from 'lucide-react'
+import { Activity, ClipboardCheck, Folder, GitPullRequest, LayoutGrid, LogOut, PanelLeft, Search, Settings, SlidersHorizontal, X } from 'lucide-react'
 import Logo from './Logo'
 import ProfileMenu from './ProfileMenu'
 import ThemeToggle from './ThemeToggle'
+import WorkspaceSwitcher from './WorkspaceSwitcher'
+import NotificationBell from './NotificationBell'
+import { WorkspaceProvider } from '../../app/WorkspaceProvider'
 import { useAuth } from '../../app/AuthProvider'
 import { useMediaQuery } from '../../hooks/useMediaQuery'
 import { Button } from '../ui'
@@ -19,15 +22,19 @@ export const NAV = [
   { to: '/app/settings', label: 'Settings', icon: Settings },
 ]
 
+// Shown only to platform administrators (the API enforces the same rule; this only hides the link).
+export const ADMIN_NAV = [{ to: '/app/admin/jobs', label: 'Job Monitor', icon: Activity }]
+
 const STORAGE_KEY = 'synaxys-sidebar'
 const EASE = 'duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]' // shared by the sidebar slide and the content shift so they move together
-const titleFor = (path) => NAV.find((n) => path.startsWith(n.to))?.label || 'SYNAXYS'
+const EXTRA_TITLES = { '/app/notifications': 'Notifications', '/app/invitations': 'Invitation', '/app/settings/workspaces': 'Workspaces', '/app/settings/account': 'Account' }
+const titleFor = (path) => Object.entries(EXTRA_TITLES).find(([p]) => path.startsWith(p))?.[1] || [...NAV, ...ADMIN_NAV].find((n) => path.startsWith(n.to))?.label || 'SYNAXYS'
 
 function readPref() {
   try { return localStorage.getItem(STORAGE_KEY) !== 'closed' } catch { return true }
 }
 
-function Sidebar({ open, onClose, closeRef }) {
+function Sidebar({ open, onClose, closeRef, items }) {
   return (
     <aside
       id="app-sidebar" aria-label="Sidebar" aria-hidden={!open} inert={open ? undefined : ''}
@@ -39,7 +46,7 @@ function Sidebar({ open, onClose, closeRef }) {
         <Button ref={closeRef} variant="ghost" className="px-2 lg:hidden" aria-label="Close navigation" onClick={onClose}><X className="h-[18px] w-[18px]" strokeWidth={1.5} aria-hidden /></Button>
       </div>
       <nav aria-label="Main" className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-3">
-        {NAV.map(({ to, label, icon: Icon }) => (
+        {items.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to} to={to} onClick={onClose}
             className={({ isActive }) => cn('flex items-center gap-3 rounded-xl px-3 py-2.5 font-pixel text-[13px] tracking-wide transition-colors',
@@ -54,7 +61,11 @@ function Sidebar({ open, onClose, closeRef }) {
 }
 
 export default function AppLayout() {
-  const { user, logout } = useAuth()
+  return <WorkspaceProvider><AppLayoutInner /></WorkspaceProvider>
+}
+
+function AppLayoutInner() {
+  const { logout, isAdmin } = useAuth()
   const { pathname } = useLocation()
   const isDesktop = useMediaQuery('(min-width: 1024px)')
   const [desktopOpen, setDesktopOpen] = useState(readPref) // remembered between visits
@@ -89,7 +100,7 @@ export default function AppLayout() {
 
   return (
     <div className="min-h-screen">
-      <Sidebar open={open} onClose={() => setMobileOpen(false)} closeRef={closeRef} />
+      <Sidebar open={open} onClose={() => setMobileOpen(false)} closeRef={closeRef} items={isAdmin ? [...NAV, ...ADMIN_NAV] : NAV} />
       <div className={cn('fixed inset-0 z-30 bg-black/50 transition-opacity lg:hidden', EASE, mobileOpen ? 'opacity-100' : 'pointer-events-none opacity-0')} onClick={() => setMobileOpen(false)} aria-hidden />
 
       <div className={cn('min-h-screen transition-[padding-left]', EASE, desktopOpen ? 'lg:pl-60' : 'lg:pl-0')}>
@@ -99,7 +110,8 @@ export default function AppLayout() {
           </Button>
           <h1 className="min-w-0 flex-1 truncate whitespace-nowrap font-pixel text-base tracking-wide sm:text-lg" title={title}>{title}</h1>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-            <span className="hidden text-xs text-muted md:inline">Workspace: <span className="font-medium text-fg">{user?.login}</span></span>
+            <WorkspaceSwitcher />
+            <NotificationBell />
             <ThemeToggle />
             <ProfileMenu />
             <Button variant="secondary" size="sm" className="px-2 md:px-2.5" onClick={logout} aria-label="Sign out">

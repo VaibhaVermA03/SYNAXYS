@@ -24,6 +24,8 @@ export default function IndexProgress({ repositoryId }) {
         </div>
       )}
       {status === 'failed' && <span className="text-danger">Indexing failed: {q.data.error || job?.error || 'unknown error'}</span>}
+      {status === 'partial' && <span className="text-warn">Partly indexed (searchable): {q.data.error || job?.error}{job?.batches?.failed ? ` · ${job.batches.failed} failed batch(es)` : ''}. Open “Branches” to continue.</span>}
+      {status === 'missing' && <span className="text-danger">{q.data.error || 'This branch no longer exists on GitHub.'}</span>}
     </div>
   )
 }

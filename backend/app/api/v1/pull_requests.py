@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.api.deps import current_user, get_github_client, rate_limit, settings_dep
+from app.api.deps import active_workspace, current_user, get_github_client, rate_limit, settings_dep
 from app.core.config import Settings
 from app.core.exceptions import BadRequest, NotConfigured
 from app.db.session import get_db
@@ -53,8 +53,8 @@ def list_pull_requests(q: str | None = None, repository_id: int | None = None, s
                        review_status: str | None = Query(None, pattern="^(none|queued|processing|completed|failed|cancelled)$"),
                        sort: str = Query("updated", pattern="^(updated|created|number)$"), order: str = Query("desc", pattern="^(asc|desc)$"),
                        page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100),
-                       db: Session = Depends(get_db), user: User = Depends(current_user)):
-    ids = accessible_repo_ids(db, user)
+                       db: Session = Depends(get_db), user: User = Depends(current_user), ws: int | None = Depends(active_workspace)):
+    ids = accessible_repo_ids(db, user, ws)
     latest = select(func.max(CodeReview.id)).where(CodeReview.pull_request_id == PullRequest.id).correlate(PullRequest).scalar_subquery()
     base = (select(PullRequest, Repository, CodeReview).join(Repository, Repository.id == PullRequest.repository_id)
             .outerjoin(CodeReview, CodeReview.id == latest).where(PullRequest.repository_id.in_(ids)))

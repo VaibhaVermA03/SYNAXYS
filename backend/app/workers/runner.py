@@ -20,7 +20,8 @@ from concurrent.futures import ThreadPoolExecutor
 from sqlalchemy import update
 
 from app.core.config import get_settings
-from app.core.logging import configure_logging
+from app.core import monitoring
+from app.core.logging import configure_logging, job_id_var
 from app.db.base import utcnow
 from app.models import CodeReview
 from app.services import job_queue
@@ -35,6 +36,29 @@ class Worker:
         self.sf, self.handlers, self.s = session_factory, handlers, settings or get_settings()
         self.id = worker_id or f"{socket.gethostname()}:{os.getpid()}"
         self.stop = threading.Event()
+        self._cleanup_thread: threading.Thread | None = None
+        # first cleanup ~60s after start, then every CLEANUP_INTERVAL_MINUTES
+        self._last_cleanup = time.monotonic() - getattr(self.s, "cleanup_interval_minutes", 60) * 60 + 60
+
+    def _maybe_cleanup(self) -> None:
+        """Scheduled retention cleanup on its own daemon thread so it never delays job claiming."""
+        if not getattr(self.s, "cleanup_enabled", False) or time.monotonic() - self._last_cleanup < self.s.cleanup_interval_minutes * 60:
+            return  # also disabled for minimal test settings objects that carry no cleanup attributes
+        if self._cleanup_thread is not None and self._cleanup_thread.is_alive():
+            return
+        self._last_cleanup = time.monotonic()
+
+        def _run() -> None:
+            try:
+                from app.db.session import engine
+                from app.services.retention import run_cleanup
+                run_cleanup(self.sf, self.s, engine=engine)
+            except Exception as exc:  # noqa: BLE001
+                log.error("scheduled cleanup crashed (%s)", type(exc).__name__)
+                monitoring.capture_exception(exc, area="cleanup")
+
+        self._cleanup_thread = threading.Thread(target=_run, name="cleanup", daemon=True)
+        self._cleanup_thread.start()
 
     # -- single job, synchronous (used by run_forever threads and by tests) --
     def run_once(self) -> bool:
@@ -49,6 +73,13 @@ class Worker:
         return True
 
     def _execute(self, job) -> None:
+        token = job_id_var.set(str(job.id))
+        try:
+            self._execute_inner(job)
+        finally:
+            job_id_var.reset(token)
+
+    def _execute_inner(self, job) -> None:
         handler = self.handlers.get(job.kind)
         with self.sf() as db:
             if handler is None:
@@ -62,6 +93,7 @@ class Worker:
                 outcome = job_queue.fail(db, job.id, self.id, exc, retriable=is_retriable(exc))
                 log.warning("job %s (%s) failed -> %s", job.id, job.kind, outcome, extra={"extra_fields": {"job_id": job.id}})
                 if outcome == "failed":
+                    monitoring.capture_job_failure(job.id, job.kind, job.attempts, exc)
                     self._on_final_failure(db, job, str(exc))
                 return
             job_queue.complete(db, job.id, self.id)
@@ -70,9 +102,18 @@ class Worker:
         """Never leave a review in an endless 'queued/processing' state."""
         if job.kind == "review" and isinstance(job.payload, dict) and job.payload.get("review_id"):
             from app.services.job_policy import sanitize_error
-            db.execute(update(CodeReview).where(CodeReview.id == job.payload["review_id"],
-                                                CodeReview.status.in_(["queued", "processing"]))
-                       .values(status="failed", error=sanitize_error(error), finished_at=utcnow()))
+            res = db.execute(update(CodeReview).where(CodeReview.id == job.payload["review_id"],
+                                                      CodeReview.status.in_(["queued", "processing"]))
+                             .values(status="failed", error=sanitize_error(error), finished_at=utcnow()))
+            db.commit()
+            if res.rowcount:
+                from app.services import notification_service
+                notification_service.safe(notification_service.on_review_failed, db, job.payload["review_id"])
+                db.commit()
+        elif job.kind == "index" and isinstance(job.payload, dict) and job.payload.get("repository_id"):
+            from app.services import notification_service
+            from app.services.job_policy import sanitize_error
+            notification_service.safe(notification_service.on_index_failed, db, int(job.payload["repository_id"]), job.id, sanitize_error(error))
             db.commit()
 
     def heartbeat(self) -> None:
@@ -89,6 +130,7 @@ class Worker:
         log.info("worker %s started (concurrency=%s, handlers=%s)", self.id, self.s.worker_concurrency, sorted(self.handlers))
         while not self.stop.is_set():
             self.heartbeat()
+            self._maybe_cleanup()
             active = {f for f in active if not f.done()}
             if time.monotonic() - last_recover > 30:
                 with self.sf() as db:
@@ -122,6 +164,7 @@ def main() -> None:
         sys.exit(healthcheck())
     s = get_settings()
     configure_logging(s.log_level)
+    monitoring.init_monitoring(s, "worker")
     from app.db.session import SessionLocal
     w = Worker(SessionLocal, load_handlers(), s)
     for sig in (signal.SIGTERM, signal.SIGINT):

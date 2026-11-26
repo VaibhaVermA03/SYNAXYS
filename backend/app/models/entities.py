@@ -1,7 +1,7 @@
 """All persistent entities. Credentials are stored only as Fernet ciphertext (*_enc)."""
 from datetime import datetime
 
-from sqlalchemy import (JSON, BigInteger, Boolean, Float, ForeignKey, Index, Integer,
+from sqlalchemy import (JSON, BigInteger, Boolean, Float, ForeignKey, Index, Integer, LargeBinary,
                         String, Text, UniqueConstraint)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -34,6 +34,7 @@ class OAuthIdentity(Base, TimestampMixin):
 
 class UserSession(Base):
     __tablename__ = "user_sessions"
+    __table_args__ = (Index("ix_user_sessions_expires_at", "expires_at"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     token_hash: Mapped[str] = mapped_column(String(64), unique=True)  # SHA-256 of cookie value
     csrf_secret: Mapped[str] = mapped_column(String(64))
@@ -68,6 +69,7 @@ class Repository(Base, TimestampMixin):
     language: Mapped[str | None] = mapped_column(String(50))
     html_url: Mapped[str | None] = mapped_column(String(500))
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=False)  # reviewing on/off
+    workspace_id: Mapped[int | None] = mapped_column(ForeignKey("workspaces.id", ondelete="SET NULL"), index=True)  # NULL = only visible to the GitHub users who can see it (connect it into a workspace)
     index_status: Mapped[str] = mapped_column(String(20), default="not_indexed")
     last_indexed_at: Mapped[datetime | None] = mapped_column(DT)
     last_indexed_commit: Mapped[str | None] = mapped_column(String(64))
@@ -96,6 +98,9 @@ class ReviewConfiguration(Base, TimestampMixin):
     max_files: Mapped[int] = mapped_column(Integer, default=50)
     max_patch_bytes: Mapped[int] = mapped_column(Integer, default=200_000)
     index_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    index_include_globs: Mapped[list] = mapped_column(JSON, default=list)  # when non-empty ONLY matching paths are indexed (gitignore-style globs)
+    index_exclude_globs: Mapped[list] = mapped_column(JSON, default=list)  # always win over include
+    index_max_files: Mapped[int | None] = mapped_column(Integer)  # per-repository cap (never above INDEX_MAX_FILES); None = global default
     repository: Mapped[Repository] = relationship(back_populates="config")
 
 
@@ -135,6 +140,7 @@ class PullRequest(Base, TimestampMixin):
 
 class WebhookDelivery(Base):
     __tablename__ = "webhook_deliveries"
+    __table_args__ = (Index("ix_webhook_deliveries_received_at", "received_at"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     delivery_id: Mapped[str] = mapped_column(String(64), unique=True)  # idempotency key
     event: Mapped[str] = mapped_column(String(60))
@@ -147,7 +153,7 @@ class WebhookDelivery(Base):
 
 class BackgroundJob(Base):
     __tablename__ = "background_jobs"
-    __table_args__ = (Index("ix_jobs_status_run_after", "status", "run_after"),)
+    __table_args__ = (Index("ix_jobs_status_run_after", "status", "run_after"), Index("ix_jobs_status_finished_at", "status", "finished_at"))
     id: Mapped[int] = mapped_column(primary_key=True)
     kind: Mapped[str] = mapped_column(String(30))  # review | index
     dedup_key: Mapped[str | None] = mapped_column(String(200), unique=True)
@@ -182,6 +188,8 @@ class CodeReview(Base, TimestampMixin):
     approved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     approved_at: Mapped[datetime | None] = mapped_column(DT)
     is_demo: Mapped[bool] = mapped_column(Boolean, default=False)
+    cancelled_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))  # set when a user cancels a QUEUED review
+    cancelled_at: Mapped[datetime | None] = mapped_column(DT)
     findings: Mapped[list["ReviewFinding"]] = relationship(back_populates="review", cascade="all, delete-orphan")
 
 
@@ -203,7 +211,11 @@ class ReviewFinding(Base, TimestampMixin):
     patch: Mapped[str | None] = mapped_column(Text)
     confidence: Mapped[float] = mapped_column(Float, default=0.5)
     inline_possible: Mapped[bool] = mapped_column(Boolean, default=False)
-    status: Mapped[str] = mapped_column(String(20), default="open")  # open|dismissed|published
+    status: Mapped[str] = mapped_column(String(20), default="open")  # open|dismissed|published  (finding lifecycle; NOT the GitHub comment state)
+    dismissed_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    dismissed_at: Mapped[datetime | None] = mapped_column(DT)
+    dismiss_reason: Mapped[str | None] = mapped_column(String(40))  # false_positive|not_applicable|will_fix_later|accepted_risk|other
+    dismiss_note: Mapped[str | None] = mapped_column(String(300))
     review: Mapped[CodeReview] = relationship(back_populates="findings")
     comment: Mapped["ReviewComment | None"] = relationship(back_populates="finding", uselist=False, cascade="all, delete-orphan")
 
@@ -214,9 +226,11 @@ class ReviewComment(Base, TimestampMixin):
     finding_id: Mapped[int] = mapped_column(ForeignKey("review_findings.id", ondelete="CASCADE"), unique=True)
     body: Mapped[str] = mapped_column(Text)
     edited: Mapped[bool] = mapped_column(Boolean, default=False)
-    state: Mapped[str] = mapped_column(String(20), default="draft")  # draft|approved|published|failed|cancelled
+    state: Mapped[str] = mapped_column(String(20), default="draft")  # draft|approved|published|failed|cancelled|deleted (deleted = removed from GitHub; the row is kept)
     approved_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     github_comment_id: Mapped[int | None] = mapped_column(BigInteger)
+    github_deleted_at: Mapped[datetime | None] = mapped_column(DT)
+    github_deleted_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
     finding: Mapped[ReviewFinding] = relationship(back_populates="comment")
 
 
@@ -247,14 +261,55 @@ class IndexingJob(Base):
     started_at: Mapped[datetime | None] = mapped_column(DT)
     finished_at: Mapped[datetime | None] = mapped_column(DT)
     created_at: Mapped[datetime] = mapped_column(DT, default=utcnow)
+    plan_summary: Mapped[dict | None] = mapped_column(JSON)  # what was selected/skipped/deferred and how the tree was listed (counts only, no code)
+    continuations: Mapped[int] = mapped_column(Integer, default=0)  # time-slice continuations enqueued for this job
+
+
+class IndexingBatch(Base):
+    """One unit of indexing work (a few files). Persisted so progress survives crashes and only failed batches are retried."""
+    __tablename__ = "indexing_batches"
+    __table_args__ = (UniqueConstraint("job_id", "seq"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("indexing_jobs.id", ondelete="CASCADE"), index=True)
+    seq: Mapped[int] = mapped_column(Integer)
+    kind: Mapped[str] = mapped_column(String(10))  # index | delete
+    status: Mapped[str] = mapped_column(String(10), default="pending")  # pending | done | failed
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    items: Mapped[list] = mapped_column(JSON, default=list)  # [{path, sha, size}] (index) / [{path}] (delete); after a partial failure only the files still to do
+    files_done: Mapped[int] = mapped_column(Integer, default=0)
+    chunks: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(String(500))
+    updated_at: Mapped[datetime] = mapped_column(DT, default=utcnow, onupdate=utcnow)
+
+
+class BranchIndexState(Base):
+    """Index state of ONE branch of a repository (a repository can have several indexed branches)."""
+    __tablename__ = "branch_index_states"
+    __table_args__ = (UniqueConstraint("repository_id", "branch"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    repository_id: Mapped[int] = mapped_column(ForeignKey("repositories.id", ondelete="CASCADE"), index=True)
+    branch: Mapped[str] = mapped_column(String(200))
+    status: Mapped[str] = mapped_column(String(20), default="queued")  # queued|indexing|indexed|partial|failed|missing
+    last_indexed_commit: Mapped[str | None] = mapped_column(String(64))
+    last_indexed_at: Mapped[datetime | None] = mapped_column(DT)
+    error: Mapped[str | None] = mapped_column(String(500))
+    files_indexed: Mapped[int] = mapped_column(Integer, default=0)
+    files_eligible: Mapped[int] = mapped_column(Integer, default=0)
+    files_deferred: Mapped[int] = mapped_column(Integer, default=0)  # eligible but over the file limit
+    failed_batches: Mapped[int] = mapped_column(Integer, default=0)
+    tree_incomplete: Mapped[bool] = mapped_column(Boolean, default=False)
+    updated_at: Mapped[datetime] = mapped_column(DT, default=utcnow, onupdate=utcnow)
 
 
 class IndexedFile(Base):
-    """Per-file index state; blob_sha comparison makes re-indexing incremental."""
-    __tablename__ = "indexed_files"
-    __table_args__ = (UniqueConstraint("repository_id", "path"),)
+    """Per-file, per-branch index state; blob_sha comparison makes re-indexing incremental.
+    (Table renamed from indexed_files in Phase 3 so the unique key could include the branch; migration 0005 copies the old rows.)"""
+    __tablename__ = "indexed_branch_files"
+    __table_args__ = (UniqueConstraint("repository_id", "branch", "path"), Index("ix_ibf_repo_branch", "repository_id", "branch"))
     id: Mapped[int] = mapped_column(primary_key=True)
     repository_id: Mapped[int] = mapped_column(ForeignKey("repositories.id", ondelete="CASCADE"), index=True)
+    branch: Mapped[str] = mapped_column(String(200), default="")
+    vector_schema: Mapped[int] = mapped_column(Integer, default=2)  # 1 = legacy vector ids (no branch tag), 2 = branch-aware ids
     path: Mapped[str] = mapped_column(String(1000))
     blob_sha: Mapped[str] = mapped_column(String(64))
     chunk_count: Mapped[int] = mapped_column(Integer, default=0)
@@ -264,10 +319,79 @@ class IndexedFile(Base):
 
 class AuditLog(Base):
     __tablename__ = "audit_logs"
+    __table_args__ = (Index("ix_audit_logs_created_at", "created_at"),)
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"), index=True)
+    workspace_id: Mapped[int | None] = mapped_column(ForeignKey("workspaces.id", ondelete="SET NULL"), index=True)  # set for workspace-level events
     action: Mapped[str] = mapped_column(String(80), index=True)
     target_type: Mapped[str | None] = mapped_column(String(40))
     target_id: Mapped[str | None] = mapped_column(String(64))
     meta: Mapped[dict | None] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DT, default=utcnow)
+
+
+class Workspace(Base, TimestampMixin):
+    """Tenant boundary (Phase 4). Owns repositories; members get access to ALL of its repositories according to their role.
+    A workspace can hold repositories from several GitHub installations (the repository, not the workspace, points at its installation)."""
+    __tablename__ = "workspaces"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(100))
+    invite_policy: Mapped[str] = mapped_column(String(10), default="admin")  # who may invite: owner | admin
+    created_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+
+
+class WorkspaceMember(Base):
+    __tablename__ = "workspace_members"
+    __table_args__ = (UniqueConstraint("workspace_id", "user_id"),)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    role: Mapped[str] = mapped_column(String(10), default="member")  # owner | admin | member
+    invited_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    created_at: Mapped[datetime] = mapped_column(DT, default=utcnow)
+
+
+class WorkspaceInvitation(Base):
+    """Invitation of a GitHub login. Accepting needs BOTH the secret link token and a session of exactly that GitHub user."""
+    __tablename__ = "workspace_invitations"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    workspace_id: Mapped[int] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), index=True)
+    invited_login: Mapped[str] = mapped_column(String(100), index=True)  # lower-cased GitHub login
+    role: Mapped[str] = mapped_column(String(10), default="member")  # admin | member
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True)  # SHA-256 of the link token; the token itself is shown once
+    status: Mapped[str] = mapped_column(String(10), default="pending")  # pending | accepted | revoked | expired
+    invited_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    accepted_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id", ondelete="SET NULL"))
+    expires_at: Mapped[datetime] = mapped_column(DT)
+    created_at: Mapped[datetime] = mapped_column(DT, default=utcnow)
+    responded_at: Mapped[datetime | None] = mapped_column(DT)
+
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    __table_args__ = (UniqueConstraint("user_id", "dedup_key"), Index("ix_notifications_user_read", "user_id", "read_at"))
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    workspace_id: Mapped[int | None] = mapped_column(ForeignKey("workspaces.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(40))
+    title: Mapped[str] = mapped_column(String(200))
+    body: Mapped[str | None] = mapped_column(String(500))
+    link: Mapped[str | None] = mapped_column(String(300))  # internal app path only
+    dedup_key: Mapped[str] = mapped_column(String(200))  # the same event never notifies the same user twice
+    read_at: Mapped[datetime | None] = mapped_column(DT)
+    created_at: Mapped[datetime] = mapped_column(DT, default=utcnow)
+
+
+class DataExport(Base):
+    """A user's data export. The archive is stored here (not on disk), is downloadable only by its owner through an authenticated endpoint, and expires."""
+    __tablename__ = "data_exports"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
+    status: Mapped[str] = mapped_column(String(10), default="pending")  # pending | ready | failed
+    payload: Mapped[bytes | None] = mapped_column(LargeBinary)
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    error: Mapped[str | None] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(DT, default=utcnow)
+    expires_at: Mapped[datetime] = mapped_column(DT)
+    downloaded_at: Mapped[datetime | None] = mapped_column(DT)
+

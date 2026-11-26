@@ -3,8 +3,11 @@
 const BASE = import.meta.env.VITE_API_BASE_URL || '/api/v1'
 const UNSAFE = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
 let csrfToken = null
+let workspaceId = null
 
 export const setCsrfToken = (t) => { csrfToken = t }
+// The active workspace only NARROWS lists; the backend verifies membership on every request.
+export const setActiveWorkspaceId = (id) => { workspaceId = id ?? null }
 
 export class ApiError extends Error {
   constructor(status, code, message, fields) {
@@ -23,10 +26,12 @@ function buildUrl(path, params) {
   return `${BASE}${path}${s ? `?${s}` : ''}`
 }
 
-export async function api(path, { method = 'GET', body, params, signal } = {}) {
+export async function api(path, { method = 'GET', body, params, signal, workspaceId: requestWorkspaceId } = {}) {
   const headers = { Accept: 'application/json' }
   if (body !== undefined) headers['Content-Type'] = 'application/json'
   if (UNSAFE.has(method) && csrfToken) headers['X-CSRF-Token'] = csrfToken
+  const activeWorkspaceId = requestWorkspaceId ?? workspaceId
+  if (activeWorkspaceId) headers['X-Workspace-Id'] = String(activeWorkspaceId)
   let res
   try {
     res = await fetch(buildUrl(path, params), { method, headers, credentials: 'include', signal, body: body !== undefined ? JSON.stringify(body) : undefined })
@@ -58,6 +63,10 @@ export function describeError(e) {
   }
 
   if (e.code === 'pinecone_not_configured') {
+    return e.message
+  }
+
+  if (e.code === 'github_permission_denied') {
     return e.message
   }
 

@@ -5,6 +5,7 @@ from typing import Literal
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from app.core.admin import parse_admin_ids
 from app.core.db_url import normalize_database_url
 
 
@@ -40,6 +41,14 @@ class Settings(BaseSettings):
     index_max_files: int = 3000
     index_chunk_chars: int = 1500
     index_embed_batch: int = 64
+    # Phase 3: scalable partial indexing
+    index_batch_files: int = 25  # files per persisted batch (the unit of progress and of retry)
+    index_batch_bytes: int = 2_000_000  # total blob bytes per batch
+    index_max_chunks_per_run: int = 20_000  # embedding budget of ONE job run; when reached the job stops as 'partial' and resumes on request
+    index_max_branches: int = 5  # extra indexed branches per repository besides the default branch (bounds Pinecone usage)
+    index_max_tree_requests: int = 400  # GitHub tree requests when a repository's recursive tree is truncated
+    index_max_continuations: int = 200  # time-slice continuations of one job
+    index_respect_gitignore: bool = True  # honour the repository's root .gitignore
     search_rate_limit_per_minute: int = 30
     context_retrieval_enabled: bool = True
     context_min_score: float = 0.35
@@ -70,10 +79,76 @@ class Settings(BaseSettings):
     worker_heartbeat_path: str = "/tmp/synaxys_worker.heartbeat"
     worker_shutdown_grace_seconds: int = 30
 
+
+    # ---- Phase 1: distributed rate limiting (Redis) ----
+    redis_url: str = ""  # empty = per-process in-memory limiter (single instance only). redis:// or rediss://
+    rate_limit_redis_failure: Literal["memory", "closed", "open"] = "memory"  # what to do while Redis is unreachable
+    rate_limit_redis_timeout_seconds: float = 0.25
+    rate_limit_redis_retry_seconds: int = 15  # circuit breaker: skip Redis for this long after a failure
+    rate_limit_key_prefix: str = "synaxys:rl"
+    global_rate_limit_per_minute: int = 300  # per client IP, all API routes except health and the GitHub webhook
+    user_rate_limit_per_minute: int = 240  # per authenticated user, authenticated routes
+    trusted_proxy_hops: int = 0  # 0 = legacy (first X-Forwarded-For entry); N>0 = N-th entry from the right. See docs/PHASE1_OPERATIONS.md
+
+    # ---- Phase 1: platform administrators ----
+    admin_github_ids: str = ""  # comma-separated numeric GitHub user IDs (NOT logins)
+
+    # ---- Phase 1: Sentry (all optional; empty DSN = disabled) ----
+    sentry_dsn: str = ""
+    sentry_environment: str = ""  # defaults to APP_ENV
+    sentry_release: str = ""
+    sentry_traces_sample_rate: float = 0.0  # performance tracing is off by default
+
+    export_ttl_hours: int = 24  # account data exports expire (and are deleted by the cleanup job) after this long
+
+    # ---- Phase 1: automatic cleanup / retention (days; 0 disables that rule where noted) ----
+    cleanup_enabled: bool = True
+    cleanup_interval_minutes: int = 60
+    cleanup_batch_size: int = 500
+    cleanup_max_batches: int = 20  # per rule per run; the rest is picked up by the next run
+    retention_sessions_days: int = 7  # after a session expired / was revoked
+    retention_webhook_days: int = 30  # minimum 7: also the window in which a replayed delivery GUID is recognised
+    retention_jobs_done_days: int = 14  # succeeded / cancelled jobs
+    retention_jobs_failed_days: int = 60
+    retention_indexing_jobs_days: int = 30  # the latest job per repository is always kept
+    retention_audit_days: int = 365  # 0 = keep forever
+    retention_security_audit_days: int = 730  # auth.* / admin.* / credential events; 0 = keep forever
+    retention_invitations_days: int = 30  # answered/expired workspace invitations (pending ones expire after 7 days by themselves)
+    retention_notifications_days: int = 90  # READ notifications
+    retention_notifications_max_days: int = 365  # any notification, read or not
+
     @field_validator("database_url")
     @classmethod
     def _normalise_db_url(cls, v: str) -> str:
         return normalize_database_url(v)
+
+    @field_validator("admin_github_ids")
+    @classmethod
+    def _check_admin_ids(cls, v: str) -> str:
+        parse_admin_ids(v)  # raises ValueError on anything that is not a positive integer
+        return v
+
+    @property
+    def admin_github_id_set(self) -> frozenset[int]:
+        return parse_admin_ids(self.admin_github_ids)
+
+    @property
+    def redis_configured(self) -> bool:
+        return bool(self.redis_url.strip())
+
+    @property
+    def sentry_configured(self) -> bool:
+        return bool(self.sentry_dsn.strip())
+
+    @model_validator(mode="after")
+    def _retention_guards(self):
+        if self.retention_webhook_days < 7:
+            raise ValueError("RETENTION_WEBHOOK_DAYS must be >= 7 (replay protection window)")
+        if self.cleanup_batch_size < 1 or self.cleanup_max_batches < 1 or self.cleanup_interval_minutes < 1:
+            raise ValueError("CLEANUP_BATCH_SIZE, CLEANUP_MAX_BATCHES and CLEANUP_INTERVAL_MINUTES must be >= 1")
+        if self.trusted_proxy_hops < 0:
+            raise ValueError("TRUSTED_PROXY_HOPS must be >= 0")
+        return self
 
     @property
     def is_production(self) -> bool:

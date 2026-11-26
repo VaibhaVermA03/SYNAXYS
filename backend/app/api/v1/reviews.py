@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
-from app.api.deps import current_user, settings_dep
+from app.api.deps import active_workspace, current_user, settings_dep
 from app.api.v1.pull_requests import review_briefs
 from app.core.config import Settings
 from app.core.exceptions import BadRequest
@@ -31,9 +31,10 @@ def _item(brief, pr: PullRequest, repo: Repository) -> dict:
 
 @router.get("", response_model=ReviewPage)
 def list_reviews(status: str | None = Query(None, pattern="^(queued|processing|completed|failed|cancelled)$"), repository_id: int | None = None,
-                 page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100), db: Session = Depends(get_db), user: User = Depends(current_user)):
+                 page: int = Query(1, ge=1), page_size: int = Query(20, ge=1, le=100), db: Session = Depends(get_db), user: User = Depends(current_user),
+                 ws: int | None = Depends(active_workspace)):
     base = (select(CodeReview, PullRequest, Repository).join(PullRequest, PullRequest.id == CodeReview.pull_request_id)
-            .join(Repository, Repository.id == PullRequest.repository_id).where(PullRequest.repository_id.in_(accessible_repo_ids(db, user))))
+            .join(Repository, Repository.id == PullRequest.repository_id).where(PullRequest.repository_id.in_(accessible_repo_ids(db, user, ws))))
     if status:
         base = base.where(CodeReview.status == status)
     if repository_id:
@@ -45,15 +46,18 @@ def list_reviews(status: str | None = Query(None, pattern="^(queued|processing|c
 
 
 @router.get("/{review_id}", response_model=ReviewDetail)
-def review_detail(review_id: int, db: Session = Depends(get_db), user: User = Depends(current_user), s: Settings = Depends(settings_dep)):
+def review_detail(review_id: int, include_dismissed: bool = Query(False), db: Session = Depends(get_db), user: User = Depends(current_user), s: Settings = Depends(settings_dep)):
     review, pr, repo = get_review_for_user(db, user, review_id)
     review = db.scalar(select(CodeReview).where(CodeReview.id == review.id).options(selectinload(CodeReview.findings)))
     brief = review_briefs(db, [review])[review.id]
     order = {"critical": 0, "high": 1, "medium": 2, "low": 3, "info": 4}
-    findings = sorted((f for f in review.findings if f.status != "dismissed"), key=lambda f: (order.get(f.severity, 9), f.path, f.start_line or 0))
+    active = [f for f in review.findings if f.status != "dismissed"]
+    dismissed_count = len(review.findings) - len(active)
+    findings = sorted(review.findings if include_dismissed else active, key=lambda f: (f.status == "dismissed", order.get(f.severity, 9), f.path, f.start_line or 0))
     by_cat: dict[str, int] = {}
-    for f in findings:
+    for f in active:
         by_cat[f.category] = by_cat.get(f.category, 0) + 1
+    logins = dict(db.execute(select(User.id, User.login).where(User.id.in_({f.dismissed_by_id for f in findings if f.dismissed_by_id}))).all()) if any(f.dismissed_by_id for f in findings) else {}
     cfg = repo.config
     approved = sum(1 for c in review_comments(db, review) if c.state == "approved")
     owner = repo_role(db, user, repo.id) == "owner"
@@ -62,12 +66,15 @@ def review_detail(review_id: int, db: Session = Depends(get_db), user: User = De
     out = [FindingOut(id=f.id, category=f.category, severity=f.severity, title=f.title, explanation=f.explanation, evidence=f.evidence, path=f.path,
                       start_line=f.start_line, end_line=f.end_line, remediation=f.remediation, patch=f.patch, confidence=f.confidence,
                       confidence_label=confidence_label(f.confidence), inline_possible=f.inline_possible, status=f.status,
-                      comment=CommentOut(id=f.comment.id, state=f.comment.state, body=f.comment.body, edited=f.comment.edited) if f.comment else None)
+                      dismissed_at=f.dismissed_at.isoformat() if f.dismissed_at else None, dismissed_by=logins.get(f.dismissed_by_id), dismiss_reason=f.dismiss_reason, dismiss_note=f.dismiss_note,
+                      comment=CommentOut(id=f.comment.id, state=f.comment.state, body=f.comment.body, edited=f.comment.edited,
+                                         github_deleted_at=f.comment.github_deleted_at.isoformat() if f.comment.github_deleted_at else None) if f.comment else None)
            for f in findings]
     return ReviewDetail(**_item(brief, pr, repo), summary=review.summary, model=review.model, by_category=by_cat, findings_list=out,
                         require_approval=cfg.require_approval if cfg else True, auto_publish=cfg.auto_publish if cfg else False,
                         can_retry=review.status in ("failed", "cancelled") and not review.is_demo, can_manage=owner and not review.is_demo,
-                        approved_comments=approved, publishable=owner and blocker is None and approved > 0, publish_blocker=blocker)
+                        approved_comments=approved, publishable=owner and blocker is None and approved > 0, publish_blocker=blocker, dismissed_count=dismissed_count,
+                        can_cancel=review.status == "queued" and not review.is_demo and (owner or review.requested_by_id == user.id))
 
 
 @router.post("/{review_id}/retry", response_model=ReviewListItem, status_code=202)
@@ -80,6 +87,7 @@ def retry_review(review_id: int, db: Session = Depends(get_db), user: User = Dep
     if not repo.is_enabled:
         raise BadRequest("Connect this repository before retrying.", code="repository_not_connected")
     review.status, review.error, review.finished_at = "queued", None, None
+    review.cancelled_by_id = review.cancelled_at = None  # the cancellation stays in the audit log
     job = db.scalar(select(BackgroundJob).where(BackgroundJob.dedup_key == f"review:{review.dedup_key}"))
     requeued = False
     if job is not None:

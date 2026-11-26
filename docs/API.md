@@ -20,7 +20,7 @@ Every `POST`/`PATCH`/`DELETE` needs the cookie **and** `X-CSRF-Token`; if an `Or
 * Errors: `{"error": {"code": "...", "message": "..."}}`; validation errors (422) add `"fields": [{"loc": ["name"], "msg": "…"}]`. Stack traces and provider details are never returned.
 * Status codes: 400 bad request / precondition, 401 not signed in, 403 forbidden (or CSRF), 404 not found **or no access**, 409 conflict (stale review, publish in progress, re-auth required), 413 body too large, 422 validation, 429 rate limited, 502 upstream (GitHub/OpenAI/Pinecone), 503 integration not configured (code names the missing piece, e.g. `pinecone_not_configured`).
 * Pagination: `page` (≥1) and `page_size` (≤100) → `{items, total, page, page_size}`.
-* Rate limits (per client IP, per process): auth login/callback/demo 10/min, code search 30/min, repository sync 6/min, indexing 6/min, manual review 20/min, publish 10/min, rule test 10/min (`*_RATE_LIMIT_PER_MINUTE` settings apply to auth and search).
+* Rate limits (Redis-backed when `REDIS_URL` is set, otherwise per process). Every route except health and the GitHub webhook also has a per-IP limit (`GLOBAL_RATE_LIMIT_PER_MINUTE`) and, when signed in, a per-user limit (`USER_RATE_LIMIT_PER_MINUTE`). Route-specific limits (per client IP): auth login/callback/demo 10/min, code search 30/min, repository sync 6/min, indexing 6/min, manual review 20/min, publish 10/min, rule test 10/min (`*_RATE_LIMIT_PER_MINUTE` settings apply to auth and search).
 
 ## Webhook endpoint
 

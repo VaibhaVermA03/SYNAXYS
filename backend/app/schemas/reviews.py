@@ -7,9 +7,10 @@ from app.schemas.pull_requests import ReviewBrief
 
 class CommentOut(BaseModel):
     id: int
-    state: str
+    state: str  # GitHub comment lifecycle: draft|approved|publishing|published|failed|cancelled|deleted
     body: str
     edited: bool
+    github_deleted_at: str | None = None
 
 
 class FindingOut(BaseModel):
@@ -27,7 +28,11 @@ class FindingOut(BaseModel):
     confidence: float
     confidence_label: str
     inline_possible: bool
-    status: str
+    status: str  # finding lifecycle: open|dismissed|published (independent of comment.state and review status)
+    dismissed_at: str | None = None
+    dismissed_by: str | None = None
+    dismiss_reason: str | None = None
+    dismiss_note: str | None = None
     comment: CommentOut | None = None
 
 
@@ -58,11 +63,37 @@ class ReviewDetail(ReviewListItem):
     approved_comments: int = 0
     publishable: bool = False
     publish_blocker: str | None = None
+    dismissed_count: int = 0
+    can_cancel: bool = False
 
 
 class CommentPatch(BaseModel):
     body: str | None = Field(None, max_length=4000)
     state: Literal["draft", "cancelled"] | None = None
+
+
+class DismissIn(BaseModel):
+    reason: Literal["false_positive", "not_applicable", "will_fix_later", "accepted_risk", "other"] | None = None
+    note: str | None = Field(None, max_length=300)
+
+
+class FindingStateOut(BaseModel):
+    id: int
+    status: str
+    dismissed_at: str | None = None
+    dismiss_reason: str | None = None
+    dismiss_note: str | None = None
+    comment: CommentOut | None = None
+
+
+class CancelOut(BaseModel):
+    status: str
+    cancelled_jobs: int
+
+
+class DeleteCommentOut(BaseModel):
+    outcome: Literal["deleted", "already_deleted"]
+    state: str
 
 
 class ApproveIn(BaseModel):
@@ -88,3 +119,4 @@ class AttemptOut(BaseModel):
     error: str | None
     actor: str | None
     created_at: str
+    action: str | None = None  # 'delete' for GitHub comment deletions; absent for publishing attempts

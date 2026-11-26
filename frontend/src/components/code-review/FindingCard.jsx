@@ -3,12 +3,13 @@ import { Badge, SeverityBadge } from '../ui'
 import { CATEGORY_LABELS } from '../../lib/diff'
 
 const CONF_TONE = { high: 'ok', medium: 'warn', low: 'neutral' }
-const COMMENT_TONE = { draft: 'neutral', approved: 'accent', published: 'ok', failed: 'danger', cancelled: 'neutral' }
+const COMMENT_TONE = { draft: 'neutral', approved: 'accent', published: 'ok', failed: 'danger', cancelled: 'neutral', deleted: 'neutral' }
+const REASONS = { false_positive: 'False positive', not_applicable: 'Not applicable', will_fix_later: 'Will fix later', accepted_risk: 'Accepted risk', other: 'Other' }
 
 export default function FindingCard({ finding: f, compact = false }) {
   const lines = f.start_line != null ? (f.end_line && f.end_line !== f.start_line ? `${f.start_line}–${f.end_line}` : `${f.start_line}`) : null
   return (
-    <article className="rounded-lg border border-border bg-surface p-3 text-sm" aria-label={`${f.severity} finding: ${f.title}`}>
+    <article className={`rounded-lg border border-border bg-surface p-3 text-sm ${f.status === 'dismissed' ? 'opacity-70' : ''}`} aria-label={`${f.severity} finding: ${f.title}`}>
       <div className="flex flex-wrap items-center gap-2">
         <SeverityBadge severity={f.severity} />
         <Badge>{CATEGORY_LABELS[f.category] || f.category}</Badge>
@@ -16,7 +17,11 @@ export default function FindingCard({ finding: f, compact = false }) {
           <Bot className="h-3.5 w-3.5" aria-hidden />AI suggestion
         </span>
         <Badge tone={CONF_TONE[f.confidence_label] || 'neutral'}>Confidence: {f.confidence_label} ({Math.round(f.confidence * 100)}%)</Badge>
+        {f.status === 'dismissed' && <Badge>Dismissed</Badge>}
       </div>
+      {f.status === 'dismissed' && (
+        <p className="mt-1 text-xs text-muted">Dismissed{f.dismissed_by ? ` by ${f.dismissed_by}` : ''}{f.dismissed_at ? ` on ${new Date(f.dismissed_at).toLocaleDateString()}` : ''}{f.dismiss_reason ? ` · ${REASONS[f.dismiss_reason] || f.dismiss_reason}` : ''}{f.dismiss_note ? ` · “${f.dismiss_note}”` : ''}</p>
+      )}
       <h4 className="mt-2 font-semibold">{f.title}</h4>
       <p className="mt-1 flex items-center gap-1 text-xs text-muted"><MapPin className="h-3 w-3" aria-hidden /><span className="font-mono">{f.path}{lines ? `:${lines}` : ''}</span>
         {!f.inline_possible && <span>· summary only (no valid diff line to attach to)</span>}</p>

@@ -30,7 +30,7 @@ Untrusted inputs: everything in a pull request (code, diffs, titles, branch name
 | Unintended posts to GitHub | drafts by default; admin approval; confirmation dialog; comment-only review (never approve/request changes); stale-commit and demo guards; fingerprint markers prevent duplicates; per-comment lock; audit trail | auto-publish (admin opt-in) removes the human gate |
 | Credential exposure in errors/logs | error envelope hides internals; JSON logger redacts known secret patterns; provider errors are mapped without details | redaction is best-effort |
 | Path traversal / SSRF through repo names | `valid_repo_name` rejects `.`/`..` segments; branch/sha inputs validated before URL building; only fixed GitHub hosts are contacted | — |
-| Resource exhaustion | request size limit (2 MB default), per-IP rate limits, bounded review batches/files/findings, job timeouts and attempts, bounded pagination | rate limiter is **per process** |
+| Resource exhaustion | request size limit (2 MB default), per-IP rate limits, bounded review batches/files/findings, job timeouts and attempts, bounded pagination | rate limits are shared across instances only with `REDIS_URL` (per process otherwise); see [docs/PHASE1_OPERATIONS.md](docs/PHASE1_OPERATIONS.md) |
 | SQL injection | SQLAlchemy parameterised queries only; no raw SQL with user input | — |
 
 ## Required production settings
@@ -58,11 +58,11 @@ Rotating `ENCRYPTION_KEY`: (1) prepend the new key — `ENCRYPTION_KEY=<new>,<ol
 
 ## Known limitations
 
-* Rate limiting is in-memory per API process; with several replicas the effective limit multiplies. Use a single API instance or add a shared limiter / proxy limits.
-* There is no account-deletion or data-export endpoint; review history and audit logs are kept until you delete database rows. Disconnecting removes vectors, not review history.
+* Without `REDIS_URL` rate limiting is in-memory per API process; with several replicas the effective limit multiplies. With Redis, a Redis outage degrades to per-process limits by default (`RATE_LIMIT_REDIS_FAILURE`). IP-based limits depend on a correct `TRUSTED_PROXY_HOPS` for your proxy chain (unverified).
+* Account deletion and data export exist (Phase 4, `docs/PHASE4_WORKSPACES.md`). Review history is kept for the remaining members of a workspace; disconnecting a repository removes vectors, not review history. Audit logs and other data follow the retention settings in `docs/PHASE1_OPERATIONS.md`.
 * GitHub user tokens from GitHub Apps expire (about 8 hours by default); sync then asks the user to sign in again. Repository roles are only refreshed on sync.
 * Review quality is not measured; the evidence filter is deliberately conservative and may discard correct findings.
-* LLM output is not a substitute for deterministic scanners (SAST, dependency, secret scanning); none are integrated and the product never claims that any ran.
+* LLM output is not a substitute for deterministic scanners. The repository itself is scanned in CI (Semgrep, Gitleaks, pip-audit, npm audit, Dependabot; `.github/workflows/security.yml`), but those workflows have not run yet, and the product never claims that any scanner ran on a customer's code.
 * `render.yaml` and `frontend/vercel.json` were never applied; Alembic baseline `0001` creates tables from model metadata (later changes must be explicit migrations).
 * No WAF, bot protection, MFA of its own (sign-in relies on GitHub), or per-tenant encryption keys.
 * Dependency versions were pinned from memory and never audited.

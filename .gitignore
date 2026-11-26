@@ -1,12 +1,35 @@
+# Secrets and local environment - NEVER commit these
 .env
+.env.*
+!.env.example
 *.env.local
+*.pem
+*.key
+*.p12
+id_rsa*
+
+# Local databases and runtime files
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-wal
+*.sqlite3-shm
+*.db
+*.heartbeat
+
+# Build, test and cache output
 node_modules/
 dist/
 __pycache__/
-.venv/
 *.pyc
+.venv/
 .pytest_cache/
 .ruff_cache/
-*.sqlite3
-*.pem
+playwright-report/
+test-results/
+coverage/
+*.log
+
+# Archives and local tooling
+*.zip
 export_source.py
+.DS_Store

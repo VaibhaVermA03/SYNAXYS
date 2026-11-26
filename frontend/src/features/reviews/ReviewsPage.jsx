@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { ClipboardCheck } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { ClipboardCheck, XCircle } from 'lucide-react'
 import { Link } from 'react-router-dom'
-import { Badge, Card, EmptyState, ErrorState, Pagination, Select, Skeleton, StatusBadge } from '../../components/ui'
+import { Badge, Button, Card, ConfirmDialog, EmptyState, ErrorState, Pagination, Select, Skeleton, StatusBadge } from '../../components/ui'
+import { useToast } from '../../components/ui/Toast'
 import { PrLink, SeverityCounts } from '../../components/code-review/ReviewParts'
 import { describeError } from '../../lib/api'
 import { formatDate, formatDuration } from '../../lib/utils'
@@ -11,9 +12,18 @@ import { reviewService } from '../../services'
 export default function ReviewsPage() {
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
+  const [toCancel, setToCancel] = useState(null)
+  const qc = useQueryClient()
+  const { toast } = useToast()
   const params = { status, page, page_size: 20 }
   const q = useQuery({ queryKey: ['reviews', params], queryFn: () => reviewService.list(params), placeholderData: (p) => p,
     refetchInterval: (query) => (query.state.data?.items.some((i) => ['queued', 'processing'].includes(i.status)) ? 5000 : false) })
+  const cancel = useMutation({
+    mutationFn: (id) => reviewService.cancel(id),
+    onSuccess: () => toast('Review cancelled. It will not run.', 'success'),
+    onError: (e) => toast(describeError(e), 'error'),  // e.g. "already started"
+    onSettled: () => { setToCancel(null); qc.invalidateQueries({ queryKey: ['reviews'] }) },
+  })
   return (
     <div className="space-y-4">
       <Select ariaLabel="Status" className="sm:w-56" value={status} onChange={(v) => { setStatus(v); setPage(1) }}
@@ -33,12 +43,16 @@ export default function ReviewsPage() {
                 </div>
                 {r.is_demo && <Badge tone="accent">Demo</Badge>}
                 <SeverityCounts bySeverity={r.by_severity} /><StatusBadge status={r.status} />
+                {r.status === 'queued' && !r.is_demo && <Button size="sm" variant="ghost" onClick={() => setToCancel(r)}><XCircle className="h-4 w-4" aria-hidden />Cancel</Button>}
               </li>
             ))}
           </ul>
         )}
       </Card>
       {q.data && <Pagination page={q.data.page} pageSize={q.data.page_size} total={q.data.total} onChange={setPage} />}
+      <ConfirmDialog open={!!toCancel} danger title={`Cancel review #${toCancel?.id}?`} confirmLabel="Cancel review" loading={cancel.isPending}
+        description="The review is removed from the queue and will not run. This only works while it is still waiting; nothing is posted to GitHub. You can retry it later."
+        onCancel={() => setToCancel(null)} onConfirm={() => cancel.mutate(toCancel.id)} />
     </div>
   )
 }

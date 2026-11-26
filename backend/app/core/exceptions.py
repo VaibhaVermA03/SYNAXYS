@@ -35,10 +35,14 @@ def register_handlers(app) -> None:
     from fastapi.exceptions import RequestValidationError
     from fastapi.responses import JSONResponse
     import logging
+    from app.core import monitoring
     log = logging.getLogger("synaxys.errors")
 
     @app.exception_handler(AppError)
     async def _app_error(_: Request, exc: AppError):
+        if exc.status_code >= 500 and not isinstance(exc, NotConfigured):  # upstream/provider failures are operationally relevant
+            log.warning("server-side AppError %s (%s)", exc.code, type(exc).__name__)
+            monitoring.capture_exception(exc, error_code=exc.code, area="api_error")
         return JSONResponse(exc.to_envelope(), status_code=exc.status_code)
 
     @app.exception_handler(RequestValidationError)

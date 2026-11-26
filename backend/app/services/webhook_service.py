@@ -1,5 +1,6 @@
 """Webhook delivery handling: idempotent, validated, persisted, enqueue-only (never runs a review)."""
 import logging
+import re
 from datetime import datetime
 
 from sqlalchemy import select
@@ -8,12 +9,12 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.db.base import utcnow
-from app.models import (BackgroundJob, CodeReview, GitHubInstallation, PullRequest, Repository, ReviewConfiguration,
+from app.models import (BackgroundJob, BranchIndexState, CodeReview, GitHubInstallation, PullRequest, Repository, ReviewConfiguration,
                         WebhookDelivery)
 from app.services import job_queue
 from app.services.job_policy import sanitize_error
 from app.services.webhook_events import (EventValidationError, decide_pr_action, parse_installation, parse_pull_request,
-                                          parse_push, push_targets_default_branch)
+                                          parse_push, push_branch, push_targets_default_branch)
 
 log = logging.getLogger("synaxys.webhooks")
 
@@ -132,8 +133,18 @@ def _on_push(db: Session, payload: dict):
     repo = db.scalar(select(Repository).where(Repository.github_repo_id == ev.github_repo_id))
     if repo is None or not repo.is_enabled or not (repo.config and repo.config.index_enabled):
         return "ignored", "repository not enabled for indexing"
+    branch = push_branch(ev)
+    tracked = db.scalar(select(BranchIndexState).where(BranchIndexState.repository_id == repo.id, BranchIndexState.branch == branch)) if branch else None
+    if ev.deleted and branch and tracked is not None and branch != repo.default_branch:
+        # GitHub itself says the branch is gone: remove ITS vectors/state (other branches are untouched)
+        _, created = job_queue.enqueue_or_requeue(db, "index_branch_delete", {"repository_id": repo.id, "branch": branch}, f"index_branch_delete:{repo.id}:{branch}")
+        return ("queued", "branch index cleanup queued") if created else ("ignored", "branch index cleanup already queued")
     if not push_targets_default_branch(ev):
-        return "ignored", "push is not a non-delete update of the default branch"
+        valid_update = not ev.deleted and branch is not None and bool(re.fullmatch(r"[0-9a-fA-F]{7,64}", ev.after)) and set(ev.after) != {"0"}
+        if not (valid_update and tracked is not None and tracked.status != "missing"):
+            return "ignored", "push is not a non-delete update of the default branch or of an indexed branch"
+        _, created = job_queue.enqueue(db, "index", {"repository_id": repo.id, "branch": branch, "commit": ev.after}, f"index:{repo.id}:{branch}:{ev.after}", timeout_seconds=1800)
+        return ("queued", "index job queued") if created else ("ignored", "index job already queued")
     _, created = job_queue.enqueue(db, "index", {"repository_id": repo.id, "branch": repo.default_branch, "commit": ev.after},
                                    f"index:{repo.id}:{ev.after}", timeout_seconds=1800)
     return ("queued", "index job queued") if created else ("ignored", "index job already queued")

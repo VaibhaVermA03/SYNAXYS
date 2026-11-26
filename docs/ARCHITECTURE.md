@@ -57,22 +57,23 @@ sequenceDiagram
 |---|---|---|---|
 | `review` | webhook, manual request, retry | `workers/review_worker.py` | run the review engine, persist findings and drafts |
 | `publish` | review completion, **only if** an admin enabled auto-publish | `workers/publish_worker.py` | approve drafts as the system and publish |
-| `index` | push to the default branch, manual request | `workers/indexing_worker.py` | incremental indexing into Pinecone |
+| `index` | push to the default branch or to an indexed branch, manual request, continuation of a time-sliced run | `workers/indexing_worker.py` | incremental indexing into Pinecone |
 | `index_delete` | disconnect, installation/repository removal | `workers/indexing_worker.py` | delete a repository's namespace and index state |
+| `index_branch_delete` | GitHub deleted an indexed branch (push event), admin removed a branch index | `workers/indexing_worker.py` | delete only that branch's vectors and state |
 
 Retries use exponential backoff with jitter; permanent errors (misconfiguration, 4xx) fail fast; expired leases are recovered by any worker; completion is fenced on the worker id so a stalled worker cannot overwrite a newer attempt.
 
 ## Request and authorization model
 
 * Identity: GitHub sign-in → server-side session (cookie holds a random token; only its SHA-256 is stored). Unsafe requests also need `X-CSRF-Token` and a permitted `Origin`.
-* Authorization is **always** computed on the server from `repository_access` (synced from what GitHub says the user can access through the installation). Missing and forbidden resources both return 404; admin-only actions require `role = owner`, derived from GitHub's `permissions.admin`.
-* Tenant isolation in the vector store: namespace `repo-<id>`; the API only queries repositories the caller can access and re-checks `repo_id` in each result.
+* Authorization is **always** computed on the server from `repository_access`. For repositories that belong to a **workspace** (Phase 4) those rows are DERIVED from workspace membership (`workspace_service.sync_access`: owner/admin -> repository admin, member -> member); for repositories not yet connected to a workspace they come from what GitHub says the user can access through the installation. Workspace routes check membership in `workspace_service.require_member` (non-members get 404). Missing and forbidden resources both return 404; admin-only actions require `role = owner`, derived from GitHub's `permissions.admin`.
+* Tenant isolation in the vector store: namespace `repo-<id>`; vector ids and metadata carry the branch; the API only queries repositories the caller can access, always applies the branch filter, and re-checks `repo_id` and `branch` in each result.
 
 ## Data model (18 tables)
 
 `users`, `oauth_identities` (encrypted token), `user_sessions`, `github_installations`, `repositories`, `repository_access`, `review_configurations`, `review_rules`, `pull_requests`, `webhook_deliveries`, `background_jobs`, `code_reviews`, `review_findings`, `review_comments`, `review_posting_attempts`, `indexing_jobs`, `indexed_files`, `audit_logs`.
 
-Idempotency constraints: `webhook_deliveries.delivery_id`, `code_reviews.dedup_key`, `background_jobs.dedup_key`, `review_findings (review_id, fingerprint)`, `review_comments.finding_id`, `indexed_files (repository_id, path)`.
+Idempotency constraints: `webhook_deliveries.delivery_id`, `code_reviews.dedup_key`, `background_jobs.dedup_key`, `review_findings (review_id, fingerprint)`, `review_comments.finding_id`, `indexed_branch_files (repository_id, branch, path)`, `branch_index_states (repository_id, branch)`, `indexing_batches (job_id, seq)`.
 
 ## Key design decisions
 

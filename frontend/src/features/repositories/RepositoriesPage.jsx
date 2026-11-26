@@ -7,6 +7,7 @@ import { describeError } from '../../lib/api'
 import { formatDate } from '../../lib/utils'
 import { githubService, indexService } from '../../services'
 import IndexProgress from '../../components/repositories/IndexProgress'
+import BranchIndexPanel from '../../components/repositories/BranchIndexPanel'
 
 const PAGE_SIZE = 20
 const INDEX_TONE = { not_indexed: 'neutral', queued: 'neutral', indexing: 'accent', indexed: 'ok', failed: 'danger' }
@@ -96,11 +97,12 @@ export default function RepositoriesPage() {
                       {r.last_indexed_at && <span>Last indexed {formatDate(r.last_indexed_at)}</span>}
                     </div>
                     {r.index_error && !['queued', 'indexing'].includes(r.index_status) && <p className="mt-1 text-xs text-danger">Indexing error: {r.index_error}</p>}
-                    {['queued', 'indexing', 'failed'].includes(r.index_status) && <IndexProgress repositoryId={r.id} />}
+                    {['queued', 'indexing', 'failed', 'partial'].includes(r.index_status) && <IndexProgress repositoryId={r.id} />}
+                    {r.is_enabled && !r.is_demo && owner && <BranchIndexPanel repository={r} />}
                   </div>
                   {r.is_enabled && !r.is_demo && !['queued', 'indexing'].includes(r.index_status) && (
                     <Button variant="secondary" size="sm" disabled={!owner} title={owner ? undefined : 'Requires repository admin permission'} loading={startIndex.isPending && startIndex.variables === r.id}
-                      onClick={() => startIndex.mutate(r.id)}>{r.index_status === 'indexed' ? 'Re-index' : r.index_status === 'failed' ? 'Retry indexing' : 'Index code'}</Button>
+                      onClick={() => startIndex.mutate(r.id)}>{['indexed', 'partial'].includes(r.index_status) ? 'Re-index' : r.index_status === 'failed' ? 'Retry indexing' : 'Index code'}</Button>
                   )}
                   {r.is_enabled ? (
                     <Button variant="secondary" size="sm" disabled={!owner} title={owner ? undefined : 'Requires repository admin permission'} onClick={() => setConfirm(r)}>Disconnect</Button>
