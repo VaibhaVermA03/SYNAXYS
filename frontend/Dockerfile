@@ -1,5 +1,5 @@
 # Frontend image: builds the SPA and serves it with nginx, proxying /api to the API container (same origin => cookies just work).
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /src
 COPY package.json package-lock.json* ./
 RUN if [ -f package-lock.json ]; then npm ci; else npm install; fi
