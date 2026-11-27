@@ -50,7 +50,7 @@ def test_invitation_grants_workspace_wide_access_only_to_the_invited_github_user
     assert len(inv["token"]) >= 40 and "token" not in ac.get(f"/api/v1/workspaces/{ws_id}/invitations").json()[0]      # shown once, never listed
     cc, ccsrf = login(ctx, CAROL)
     assert cc.post("/api/v1/workspaces/invitations/accept", json={"token": inv["token"]}, headers=H(ccsrf)).status_code == 404   # forwarded link: useless
-    assert cc.get(f"/api/v1/github/repositories").json()["items"] == []
+    assert cc.get("/api/v1/github/repositories").json()["items"] == []
     bc, bcsrf = login(ctx, BOB)
     assert [i["workspace_name"] for i in bc.get("/api/v1/workspaces/invitations/mine").json()] == ["alice's workspace"]
     assert bc.post("/api/v1/workspaces/invitations/accept", json={"token": inv["token"]}, headers=H(bcsrf)).status_code == 200
@@ -82,7 +82,7 @@ def test_roles_are_enforced_by_the_backend(ctx):
     bob_id = next(m["user_id"] for m in ac.get(f"/api/v1/workspaces/{ws_id}/members").json() if m["login"] == "bob")
     assert bc.patch(f"/api/v1/workspaces/{ws_id}/members/{bob_id}", json={"role": "admin"}, headers=H(bcsrf)).status_code == 403   # no self-promotion
     assert ac.patch(f"/api/v1/workspaces/{ws_id}/members/{bob_id}", json={"role": "admin"}, headers=H(acsrf)).status_code == 204
-    assert bc.get(f"/api/v1/github/repositories").json()["items"][0]["role"] == "owner"                                              # admin = repository admin
+    assert bc.get("/api/v1/github/repositories").json()["items"][0]["role"] == "owner"                                              # admin = repository admin
     assert bc.post(f"/api/v1/workspaces/{ws_id}/invitations", json={"login": "dave", "role": "admin"}, headers=H(bcsrf)).status_code == 403   # only the owner invites admins
     assert bc.post(f"/api/v1/workspaces/{ws_id}/invitations", json={"login": "dave", "role": "member"}, headers=H(bcsrf)).status_code == 201
     assert ac.post(f"/api/v1/workspaces/{ws_id}/leave", headers=H(acsrf)).json()["error"]["code"] == "owner_cannot_leave"
