@@ -1,6 +1,6 @@
-# Manifest (final + hotfix + UI refreshes + deploy readiness + Phase 1 hardening + Phase 2 review workflow + Phase 3 indexing + Phase 4 workspaces)
+# Manifest (final + hotfix + UI refreshes + deploy readiness + Phase 1 hardening + Phase 2 review workflow + Phase 3 indexing + Phase 4 workspaces + Phase 5 trust and compliance)
 
-Every file in the project (292 files including this one). Excluded on purpose: `.env`, keys, databases, caches, virtualenvs, `node_modules`, build output, lockfiles that could not be generated offline.
+Every file in the project (319 files including this one). Excluded on purpose: `.env`, keys, databases, caches, virtualenvs, `node_modules`, build output, lockfiles that could not be generated offline.
 
 - `.env.example`
 - `.github/dependabot.yml`
@@ -10,6 +10,7 @@ Every file in the project (292 files including this one). Excluded on purpose: `
 - `.gitleaks.toml`
 - `DEPLOYMENT.md`
 - `IMPLEMENTATION_STATUS.md`
+- `LICENSE`
 - `MANIFEST.md`
 - `README.md`
 - `SECURITY.md`
@@ -140,6 +141,7 @@ Every file in the project (292 files including this one). Excluded on purpose: `
 - `backend/app/tests/test_phase15_pure.py`
 - `backend/app/tests/test_phase16_db.py`
 - `backend/app/tests/test_phase16_pure.py`
+- `backend/app/tests/test_phase17_pure.py`
 - `backend/app/tests/test_phase3_pure.py`
 - `backend/app/tests/test_phase4_db.py`
 - `backend/app/tests/test_phase4_pure.py`
@@ -175,6 +177,8 @@ Every file in the project (292 files including this one). Excluded on purpose: `
 - `backend/tools/check_names.py`
 - `backend/tools/check_repo.py`
 - `backend/tools/gen_api_docs.py`
+- `backend/tools/gen_legal_docs.py`
+- `backend/tools/make_favicons.py`
 - `backend/tools/make_source_zip.py`
 - `backend/tools/run_pure_tests.py`
 - `docker-compose.yml`
@@ -187,9 +191,16 @@ Every file in the project (292 files including this one). Excluded on purpose: `
 - `docs/PHASE2_WORKFLOW.md`
 - `docs/PHASE3_INDEXING.md`
 - `docs/PHASE4_WORKSPACES.md`
+- `docs/PHASE5_TRUST.md`
 - `docs/PINECONE_OPENAI.md`
 - `docs/PRODUCTION_CHECKLIST.md`
 - `docs/TROUBLESHOOTING.md`
+- `docs/legal/LICENSE_NOTICE.md`
+- `docs/legal/PLACEHOLDERS.md`
+- `docs/legal/PRIVACY_POLICY.md`
+- `docs/legal/SECURITY_POLICY.md`
+- `docs/legal/TERMS_OF_SERVICE.md`
+- `docs/security.txt.template`
 - `frontend/.dockerignore`
 - `frontend/.env.example`
 - `frontend/Dockerfile`
@@ -203,13 +214,22 @@ Every file in the project (292 files including this one). Excluded on purpose: `
 - `frontend/package.json`
 - `frontend/playwright.config.js`
 - `frontend/postcss.config.js`
+- `frontend/public/android-chrome-192x192.png`
+- `frontend/public/android-chrome-512x512.png`
+- `frontend/public/apple-touch-icon.png`
 - `frontend/public/brand/.gitkeep`
 - `frontend/public/brand/README.md`
 - `frontend/public/brand/synaxys-logo.svg`
+- `frontend/public/favicon-16x16.png`
+- `frontend/public/favicon-32x32.png`
+- `frontend/public/favicon.ico`
+- `frontend/public/favicon.svg`
 - `frontend/public/fonts/GEIST-LICENSE.txt`
 - `frontend/public/fonts/README.md`
 - `frontend/public/fonts/geist-pixel-circle.woff2`
 - `frontend/public/logo.svg`
+- `frontend/public/maskable-512x512.png`
+- `frontend/public/site.webmanifest`
 - `frontend/public/theme-init.js`
 - `frontend/scripts/install-geist-pixel.mjs`
 - `frontend/src/App.jsx`
@@ -250,6 +270,9 @@ Every file in the project (292 files including this one). Excluded on purpose: `
 - `frontend/src/features/code-search/CodeSearchPage.test.jsx`
 - `frontend/src/features/dashboard/DashboardPage.jsx`
 - `frontend/src/features/dashboard/DashboardPage.test.jsx`
+- `frontend/src/features/legal/Legal.test.jsx`
+- `frontend/src/features/legal/LegalFooter.jsx`
+- `frontend/src/features/legal/LegalPage.jsx`
 - `frontend/src/features/notifications/NotificationsPage.jsx`
 - `frontend/src/features/pull-requests/PullRequestDetailPage.jsx`
 - `frontend/src/features/pull-requests/PullRequestsPage.jsx`
@@ -274,6 +297,10 @@ Every file in the project (292 files including this one). Excluded on purpose: `
 - `frontend/src/features/workspaces/WorkspacesPage.jsx`
 - `frontend/src/hooks/useMediaQuery.js`
 - `frontend/src/hooks/usePresence.js`
+- `frontend/src/legal/license.json`
+- `frontend/src/legal/privacy.json`
+- `frontend/src/legal/security.json`
+- `frontend/src/legal/terms.json`
 - `frontend/src/lib/api.js`
 - `frontend/src/lib/api.test.js`
 - `frontend/src/lib/diff.js`

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { ExternalLink, FolderGit2, GitBranch, GitPullRequest, Info, Search } from 'lucide-react'
@@ -17,7 +17,7 @@ export default function CodeSearchPage() {
   const repos = useQuery({ queryKey: ['repositories', 'search-scope'], queryFn: () => githubService.repositories({ page_size: 100 }) })
   const indexed = (repos.data?.items || []).filter((r) => r.is_enabled && ['indexed', 'partial'].includes(r.index_status))
   const branches = useQuery({ queryKey: ['search-branches', repo], queryFn: () => searchService.branches(repo ? { repository_id: Number(repo) } : undefined), retry: false })
-  const branchList = branches.data?.branches || []
+  const branchList = useMemo(() => branches.data?.branches || [], [branches.data])
   useEffect(() => { if (branch && branches.isSuccess && !branchList.some((b) => b.branch === branch)) setBranch('') }, [branch, branches.isSuccess, branchList])  // a branch that disappeared (deleted/removed) falls back to the default
   const search = useMutation({ mutationFn: searchService.query })
   const submit = (e) => {

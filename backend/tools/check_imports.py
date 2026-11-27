@@ -2,7 +2,7 @@
 import ast, pathlib, sys
 root = pathlib.Path("/home/claude/synaxys/backend"); bad = []
 def top_names(path):
-    t = ast.parse(path.read_text()); names = set()
+    t = ast.parse(path.read_text(encoding="utf-8")); names = set()
     for n in t.body:
         if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)): names.add(n.name)
         elif isinstance(n, ast.Assign): names |= {x.id for x in n.targets if isinstance(x, ast.Name)}
@@ -11,7 +11,7 @@ def top_names(path):
     return names, any(isinstance(n, ast.ImportFrom) and any(a.name == "*" for a in n.names) for n in t.body)
 for f in root.rglob("*.py"):
     if "__pycache__" in f.parts: continue
-    for n in ast.walk(ast.parse(f.read_text())):
+    for n in ast.walk(ast.parse(f.read_text(encoding="utf-8"))):
         if isinstance(n, ast.ImportFrom) and n.module and n.module.startswith("app"):
             mod = root / n.module.replace(".", "/")
             target = mod.with_suffix(".py") if mod.with_suffix(".py").exists() else mod / "__init__.py"

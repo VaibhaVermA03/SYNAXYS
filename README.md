@@ -137,4 +137,4 @@ render.yaml  frontend/vercel.json   deployment configs (all unverified, see DEPL
 
 ## Licence
 
-None is included. Add the licence you intend to use before distributing.
+SYNAXYS is **proprietary** software: see [LICENSE](LICENSE) (a draft notice with placeholders for the copyright holder and legal details, which need legal review). No open-source licence applies. Draft Privacy Policy, Terms of Service, vulnerability-reporting policy and licence notice are in [docs/legal](docs/legal) and are shown in the app under `/legal/*` (single source: `frontend/src/legal/*.json`; regenerate the Markdown with `python backend/tools/gen_legal_docs.py`).

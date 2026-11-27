@@ -1,0 +1,27 @@
+SYNAXYS - PROPRIETARY SOFTWARE LICENCE NOTICE
+ 
+Copyright (c) 2026 VAIBHAV VERMA. All rights reserved.
+ 
+This software and its source code are proprietary and confidential to
+VAIBHAV VERMA, an individual (no company is involved).
+This is NOT open-source software and no open-source licence applies to it.
+ 
+No licence or right to use, copy, modify, merge, publish, distribute,
+sublicense, sell, host for third parties, reverse engineer, or create derivative
+works of the software or its source code is granted, except
+  (a) under a written agreement signed by VAIBHAV VERMA, or
+  (b) as stated in the Terms of Service for the use of the hosted service.
+ 
+Third-party components used by the software remain under their own licences,
+which stay in effect and are not changed by this notice. The components are
+listed in the dependency manifests (frontend/package.json and
+backend/requirements.txt); a full third-party notice list is available on
+request and will be provided before any distribution of the software.
+ 
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING MERCHANTABILITY, FITNESS FOR A PARTICULAR
+PURPOSE AND NON-INFRINGEMENT. TO THE EXTENT PERMITTED BY LAW THE COPYRIGHT
+HOLDER IS NOT LIABLE FOR ANY CLAIM OR DAMAGES ARISING FROM THE SOFTWARE.
+Governing law and courts: as stated in the Terms of Service.
+ 
+Licensing enquiries: vaibhavverma0307@gmail.com

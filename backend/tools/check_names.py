@@ -21,7 +21,7 @@ def walk(table, module_names, path):
 
 files = [f for f in ROOT.rglob("*.py") if "__pycache__" not in f.parts and ".venv" not in f.parts]
 for f in sorted(files):
-    src = f.read_text()
+    src = f.read_text(encoding="utf-8")
     top = symtable.symtable(src, str(f), "exec")
     names = {s.get_name() for s in top.get_symbols() if s.is_assigned() or s.is_imported() or s.is_namespace()}
     if any(s.get_name() == "*" for s in top.get_symbols()):

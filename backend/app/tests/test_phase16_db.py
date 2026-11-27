@@ -50,7 +50,7 @@ def test_invitation_grants_workspace_wide_access_only_to_the_invited_github_user
     assert len(inv["token"]) >= 40 and "token" not in ac.get(f"/api/v1/workspaces/{ws_id}/invitations").json()[0]      # shown once, never listed
     cc, ccsrf = login(ctx, CAROL)
     assert cc.post("/api/v1/workspaces/invitations/accept", json={"token": inv["token"]}, headers=H(ccsrf)).status_code == 404   # forwarded link: useless
-    assert cc.get("/api/v1/github/repositories").json()["items"] == []
+    assert cc.get(f"/api/v1/github/repositories").json()["items"] == []
     bc, bcsrf = login(ctx, BOB)
     assert [i["workspace_name"] for i in bc.get("/api/v1/workspaces/invitations/mine").json()] == ["alice's workspace"]
     assert bc.post("/api/v1/workspaces/invitations/accept", json={"token": inv["token"]}, headers=H(bcsrf)).status_code == 200
@@ -82,7 +82,7 @@ def test_roles_are_enforced_by_the_backend(ctx):
     bob_id = next(m["user_id"] for m in ac.get(f"/api/v1/workspaces/{ws_id}/members").json() if m["login"] == "bob")
     assert bc.patch(f"/api/v1/workspaces/{ws_id}/members/{bob_id}", json={"role": "admin"}, headers=H(bcsrf)).status_code == 403   # no self-promotion
     assert ac.patch(f"/api/v1/workspaces/{ws_id}/members/{bob_id}", json={"role": "admin"}, headers=H(acsrf)).status_code == 204
-    assert bc.get("/api/v1/github/repositories").json()["items"][0]["role"] == "owner"                                              # admin = repository admin
+    assert bc.get(f"/api/v1/github/repositories").json()["items"][0]["role"] == "owner"                                              # admin = repository admin
     assert bc.post(f"/api/v1/workspaces/{ws_id}/invitations", json={"login": "dave", "role": "admin"}, headers=H(bcsrf)).status_code == 403   # only the owner invites admins
     assert bc.post(f"/api/v1/workspaces/{ws_id}/invitations", json={"login": "dave", "role": "member"}, headers=H(bcsrf)).status_code == 201
     assert ac.post(f"/api/v1/workspaces/{ws_id}/leave", headers=H(acsrf)).json()["error"]["code"] == "owner_cannot_leave"
@@ -127,10 +127,11 @@ def test_workspace_delete_needs_the_name_and_detaches_repositories(ctx):
     ac, acsrf, repo_id, ws_id = setup_alice(ctx)
     assert ac.post(f"/api/v1/workspaces/{ws_id}/delete", json={"confirm_name": "wrong"}, headers=H(acsrf)).json()["error"]["code"] == "confirmation_mismatch"
     assert ac.post(f"/api/v1/workspaces/{ws_id}/delete", json={"confirm_name": "alice's workspace"}, headers=H(acsrf)).status_code == 204
+    from app.models import PullRequest
     with ctx.db() as db:
-        r = db.get(Repository, repo_id)
-        assert r.workspace_id is None and r.is_enabled is False
-        assert db.scalar(select(BackgroundJob).where(BackgroundJob.kind == "index_delete")) is not None                  # vectors are removed through the queue
+        assert db.get(Repository, repo_id) is None and db.scalar(select(PullRequest.id)) is None                          # SYNAXYS data about the repository is gone, not just detached
+        job = db.scalar(select(BackgroundJob).where(BackgroundJob.kind == "index_delete"))
+        assert job is not None and job.payload == {"repository_id": repo_id, "purged": True}                             # vectors are removed through the queue
     assert ac.get("/api/v1/github/repositories").json()["items"] == []
 
 
@@ -221,10 +222,9 @@ def test_account_deletion_requires_identity_proof_and_keeps_shared_workspaces(ct
     with ctx.db() as db:
         s = db.scalar(select(UserSession).where(UserSession.user_id == 1)); s.created_at = s.created_at.replace(year=2020); db.commit()
     assert ac.post("/api/v1/account/delete", json={"confirm_login": "alice"}, headers=H(acsrf)).status_code == 403    # stale session: sign in again first
-    ac, acsrf = login(ctx, {"id": 1, "login": "alice"})  # fresh GitHub sign-in as Alice                                                                                           # fresh GitHub sign-in
+    ac, acsrf = login(ctx, {"id": 1, "login": "alice"})                                                              # fresh GitHub sign-in (as alice: the fake GitHub user was left as bob)
     r = ac.post("/api/v1/account/delete", json={"confirm_login": "alice"}, headers=H(acsrf))
     assert r.status_code == 204
-    print("DELETE RESPONSE:", r.status_code, r.text)
     assert ac.get("/api/v1/auth/me").status_code == 401                                                              # signed out immediately
     with ctx.db() as db:
         assert db.scalar(select(User).where(User.login == "alice")) is None and db.scalar(select(OAuthIdentity).where(OAuthIdentity.user_id == 1)) is None

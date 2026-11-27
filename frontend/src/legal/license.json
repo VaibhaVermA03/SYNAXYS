@@ -1,0 +1,35 @@
+{
+  "id": "license",
+  "title": "Software licence notice",
+  "banner": "DRAFT: this document was prepared from how the software actually works and must be reviewed by a qualified lawyer before it is published. Text in [[double brackets]] is information only the operator can provide; nothing in brackets has been invented.",
+  "effective": "",
+  "sections": [
+    {
+      "id": "notice",
+      "title": "Proprietary software",
+      "blocks": [
+        {
+          "p": "SYNAXYS is proprietary software. Copyright © {{year}} {{ownerName}}. All rights reserved."
+        },
+        {
+          "p": "No licence or right to copy, modify, distribute, sublicense, sell, host for others, reverse engineer or create derivative works of the software or its source code is granted except under a written agreement with {{ownerName}} or as stated in the Terms of Service for the use of the hosted service."
+        },
+        {
+          "p": "Third-party components included in or used by the software are available under their own licences, which remain in effect. The components and their licences are listed in the project’s dependency manifests (package.json and requirements.txt); a full third-party notice list is provided on request and before any distribution of the software."
+        },
+        {
+          "p": "The software is provided without warranty, as described in the Terms of Service. The copyright holder is the individual named above (no company is involved); governing law and courts are stated in the Terms of Service."
+        }
+      ]
+    },
+    {
+      "id": "contact",
+      "title": "Contact",
+      "blocks": [
+        {
+          "p": "Licensing enquiries: {{contactEmail}}."
+        }
+      ]
+    }
+  ]
+}

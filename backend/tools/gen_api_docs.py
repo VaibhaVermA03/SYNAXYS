@@ -10,7 +10,7 @@ API = ROOT / "backend/app/api/v1"
 PUBLIC = {("GET", "/health"), ("GET", "/health/ready"), ("GET", "/auth/config"), ("GET", "/auth/github/login"), ("GET", "/auth/github/callback"), ("POST", "/auth/demo-login"), ("POST", "/auth/logout")}
 rows = []
 for f in sorted(API.glob("*.py")):
-    tree = ast.parse(f.read_text())
+    tree = ast.parse(f.read_text(encoding="utf-8"))
     prefix = ""
     for n in tree.body:
         if isinstance(n, ast.Assign) and isinstance(n.value, ast.Call) and getattr(n.value.func, "id", "") == "APIRouter":
@@ -42,5 +42,5 @@ out += [f"| {m} | `/api/v1{p}` | {s} | {a} | {d} |" for p, m, s, a, d, _ in rows
 out.append("")
 out.append(f"_{len(rows)} endpoints._")
 (ROOT / "docs").mkdir(exist_ok=True)
-(ROOT / "docs/API_ENDPOINTS.md").write_text("\n".join(out) + "\n")
+(ROOT / "docs/API_ENDPOINTS.md").write_text("\n".join(out) + "\n", encoding="utf-8")
 print(f"{len(rows)} endpoints written to docs/API_ENDPOINTS.md")

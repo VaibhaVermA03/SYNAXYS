@@ -18,7 +18,7 @@ def test_logging_redacts_secrets():
 
 
 def _tables_and_fks():
-    tree = ast.parse(MODELS.read_text())
+    tree = ast.parse(MODELS.read_text(encoding="utf-8"))
     tables, fks = set(), []
     for node in ast.walk(tree):
         if isinstance(node, ast.Assign) and any(getattr(t, "id", "") == "__tablename__" for t in node.targets):
@@ -36,5 +36,5 @@ def test_model_foreign_keys_reference_existing_tables_and_ondelete_set():
 
 
 def test_no_plaintext_token_columns():
-    src = MODELS.read_text()
+    src = MODELS.read_text(encoding="utf-8")
     assert "access_token:" not in src and "access_token_enc" in src

@@ -20,6 +20,7 @@ import NotificationsPage from './features/notifications/NotificationsPage'
 import AccountPage from './features/settings/AccountPage'
 
 import NotFoundPage from './pages/NotFoundPage'
+import LegalPage from './features/legal/LegalPage'
 
 const NotFoundStandalone = () => <div className="mx-auto max-w-xl p-6"><NotFoundPage /></div>
 
@@ -28,6 +29,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<LoginPage />} />
       <Route path="/auth/callback" element={<AuthCallbackPage />} />
+      <Route path="/legal/:doc" element={<LegalPage />} />
       <Route element={<ProtectedRoute />}>
         <Route path="/app" element={<AppLayout />}>
           <Route index element={<Navigate to="dashboard" replace />} />

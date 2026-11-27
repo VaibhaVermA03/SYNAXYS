@@ -47,6 +47,9 @@ def handle_index(db, job) -> None:
 
 def handle_index_delete(db, job) -> None:
     """Job kind 'index_delete' (disconnect). Skipped when the repository was reconnected meanwhile."""
+    if job.payload.get("purged"):  # the repository row was deleted together with its workspace: remove its namespace by id
+        delete_repository_index(db, get_vector_store(get_settings()), int(job.payload["repository_id"]))
+        return
     repo = db.get(Repository, int(job.payload["repository_id"]))
     if repo is None or repo.is_enabled:
         return

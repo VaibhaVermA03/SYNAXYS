@@ -43,7 +43,7 @@ export default function AccountPage() {
       </Card>
       <Card className="space-y-3 border-danger/40 p-4">
         <h3 className="text-sm font-medium text-danger">Delete your account</h3>
-        <p className="text-xs text-muted">Removes your profile, sessions, stored GitHub token (and revokes it at GitHub when possible), notifications and exports. Workspaces you share with others stay (ownership passes to another member); workspaces where you are the only member are deleted with their repositories’ search index. This cannot be undone.</p>
+        <p className="text-xs text-muted">Removes your profile, sessions, stored GitHub token (and revokes it at GitHub when possible), notifications and exports. Workspaces you share with others stay (ownership passes to another member); workspaces where you are the only member are deleted together with all review data and the search index of their repositories. This cannot be undone.</p>
         {needLogin && <p role="alert" className="text-xs text-danger">For your security please sign in with GitHub again, then delete your account within 15 minutes. <a className="underline" href="/login">Sign in again</a></p>}
         <Button variant="secondary" onClick={() => setOpen(true)}><Trash2 className="h-4 w-4" aria-hidden />Delete my account</Button>
       </Card>

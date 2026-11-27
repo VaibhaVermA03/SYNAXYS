@@ -180,12 +180,12 @@ function Danger({ ws }) {
       <h3 className="text-sm font-medium text-danger">Danger zone</h3>
       {ws.role !== 'owner' && <Button variant="secondary" onClick={() => setLeave(true)}><LogOut className="h-4 w-4" aria-hidden />Leave workspace</Button>}
       {ws.role === 'owner' && <>
-        <p className="text-xs text-muted">The owner cannot leave: transfer ownership first, or delete the workspace. Deleting disconnects its repositories and removes their search index.</p>
+        <p className="text-xs text-muted">The owner cannot leave: transfer ownership first, or delete the workspace. Deleting removes the workspace and ALL SYNAXYS data about its repositories (reviews, findings, comments, search index). Nothing is changed on GitHub.</p>
         <Button variant="secondary" onClick={() => setDel(true)}><Trash2 className="h-4 w-4" aria-hidden />Delete workspace</Button>
       </>}
       <ConfirmDialog open={leave} danger title="Leave this workspace?" confirmLabel="Leave" loading={leaveM.isPending} description="You lose access to its repositories, reviews and findings." onCancel={() => setLeave(false)} onConfirm={() => leaveM.mutate()} />
       <ConfirmDialog open={del} danger title={`Delete “${ws.name}”?`} confirmLabel="Delete workspace" loading={delM.isPending}
-        description="This cannot be undone. Repositories are disconnected and their search index is removed. Type the workspace name to confirm."
+        description="This cannot be undone. The workspace and all SYNAXYS data about its repositories (reviews, findings, comments, search index) are deleted. Nothing is changed on GitHub. Type the workspace name to confirm."
         onCancel={() => { setDel(false); setTyped('') }} onConfirm={() => typed === ws.name && delM.mutate()}>
         <input aria-label="Type the workspace name" className={input} value={typed} onChange={(e) => setTyped(e.target.value)} />
       </ConfirmDialog>

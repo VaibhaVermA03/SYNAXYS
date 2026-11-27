@@ -23,7 +23,13 @@ def test_migration_and_seed_on_sqlite(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path}/t.sqlite3")
     from alembic import command
     from alembic.config import Config
-    command.upgrade(Config("alembic.ini"), "head")
+    from app.core.config import get_settings
+    get_settings.cache_clear()  # migrations/env.py reads the (cached) settings: make sure it sees this test's DATABASE_URL
+    import pathlib
+    backend = pathlib.Path(__file__).resolve().parents[2]            # .../backend, so the test works from any working directory
+    cfg = Config(str(backend / "alembic.ini"))
+    cfg.set_main_option("script_location", str(backend / "migrations"))
+    command.upgrade(cfg, "head")
     from app.db.seed import seed
     seed(); seed()  # idempotent
 

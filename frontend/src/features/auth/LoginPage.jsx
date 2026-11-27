@@ -5,6 +5,7 @@ import Logo from '../../components/layout/Logo'
 import ThemeToggle from '../../components/layout/ThemeToggle'
 import { ErrorState, Skeleton } from '../../components/ui'
 import AmbientBackground from './AmbientBackground'
+import LegalFooter from '../legal/LegalFooter'
 import LoginShowcase from './LoginShowcase'
 import { useAuth } from '../../app/AuthProvider'
 import { describeError } from '../../lib/api'
@@ -59,6 +60,7 @@ export default function LoginPage() {
               </a>
             )}
           </div>
+          <LegalFooter className="mt-8 flex justify-center lg:justify-start" />
         </div>
       </main>
 

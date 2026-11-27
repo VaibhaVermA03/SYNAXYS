@@ -1,5 +1,17 @@
 # Security
 
+## Reporting a vulnerability
+
+Please report suspected vulnerabilities **privately** and give us reasonable time to fix them before disclosure. The full policy (what to include, scope, testing rules, what happens next) is in [docs/legal/SECURITY_POLICY.md](docs/legal/SECURITY_POLICY.md) and is shown in the app at `/legal/security`.
+
+* Contact: **[SECURITY CONTACT E-MAIL OR PRIVATE REPORTING LINK - to be provided by the owner]**
+* Encryption (optional): **[PGP KEY FINGERPRINT - to be provided by the owner]**
+* Do not open public issues for vulnerabilities.
+
+> These contact details are deliberately placeholders. Fill them in, then publish `docs/security.txt.template` as `/.well-known/security.txt` (RFC 9116) and update `frontend/src/legal/security.json` (then run `python backend/tools/gen_legal_docs.py`).
+
+## Security design and known limitations
+
 **Status:** security controls below are implemented in code and covered by tests, but most of those tests have **not been executed** (see [TESTING.md](TESTING.md)), no dependency audit has been run, and the system has never been exercised against real GitHub, OpenAI or Pinecone. This document does not claim the application is free of vulnerabilities. Have it reviewed and penetration-tested before processing real customer code.
 
 ## Assets and trust boundaries

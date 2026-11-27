@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { KeyRound, LogOut, Moon, Plug, Sun, User, Users } from 'lucide-react'
+import { KeyRound, LogOut, Moon, Plug, Scale, Sun, User, Users } from 'lucide-react'
 import { Badge, Button, Card, ConfirmDialog, ErrorState, Skeleton } from '../../components/ui'
 import { useToast } from '../../components/ui/Toast'
 import { useAuth } from '../../app/AuthProvider'
@@ -9,6 +9,7 @@ import { useTheme } from '../../app/ThemeProvider'
 import { describeError } from '../../lib/api'
 import { formatDate } from '../../lib/utils'
 import { githubService, settingsService } from '../../services'
+import LegalFooter from '../legal/LegalFooter'
 
 const LABELS = {
   'auth.login': 'Signed in', 'auth.logout': 'Signed out', 'auth.demo_login': 'Signed in (demo)', 'github.sync': 'Synced repositories from GitHub',
@@ -62,6 +63,12 @@ export default function SettingsPage() {
         <h2 className="flex items-center gap-2 font-semibold"><User className="h-4 w-4" aria-hidden />Account</h2>
         <p className="text-sm text-muted">Export your data or delete your account.</p>
         <Link to="/app/settings/account"><Button variant="secondary">Open account settings</Button></Link>
+      </Card>
+
+      <Card className="space-y-2 p-4">
+        <h2 className="flex items-center gap-2 font-semibold"><Scale className="h-4 w-4" aria-hidden />Legal</h2>
+        <p className="text-sm text-muted">How your code and data are handled, the terms of use, how to report a vulnerability, and the licence notice.</p>
+        <LegalFooter className="text-sm" />
       </Card>
 
       <Card className="space-y-2 p-4">

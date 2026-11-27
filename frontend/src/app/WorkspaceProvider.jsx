@@ -12,7 +12,7 @@ export function WorkspaceProvider({ children }) {
   const qc = useQueryClient()
   const q = useQuery({ queryKey: ['workspaces'], queryFn: workspaceService.list, retry: false, staleTime: 60_000 })
   const [chosen, setChosen] = useState(readStored)
-  const list = q.data || []
+  const list = useMemo(() => q.data || [], [q.data])
   // A stored id the user no longer belongs to (removed, deleted) silently falls back to the first workspace.
   const active = list.find((w) => w.id === chosen) || list[0] || null
   useEffect(() => { setActiveWorkspaceId(active?.id ?? null) }, [active?.id])

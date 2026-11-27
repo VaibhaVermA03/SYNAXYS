@@ -15,22 +15,22 @@ USER_CREATED = {"backend/.env", "frontend/public/brand/synaxys-logo.svg", "front
 problems: list[str] = []
 
 # 1 --- settings <-> env example
-tree = ast.parse((ROOT / "backend/app/core/config.py").read_text())
+tree = ast.parse((ROOT / "backend/app/core/config.py").read_text(encoding="utf-8"))
 cls = next(n for n in tree.body if isinstance(n, ast.ClassDef) and n.name == "Settings")
 fields = {n.target.id.upper() for n in cls.body if isinstance(n, ast.AnnAssign) and isinstance(n.target, ast.Name)}
 for env_file in (ROOT / ".env.example", ROOT / "backend/.env.example"):
     if not env_file.exists():
         problems.append(f"missing {env_file.relative_to(ROOT)}")
         continue
-    declared = set(re.findall(r"^#?\s*([A-Z][A-Z0-9_]+)=", env_file.read_text(), re.M))
+    declared = set(re.findall(r"^#?\s*([A-Z][A-Z0-9_]+)=", env_file.read_text(encoding="utf-8"), re.M))
     problems += [f"{env_file.name}: Settings field {f} is not documented" for f in sorted(fields - declared)]
     problems += [f"{env_file.name}: {d} is not a Settings field" for d in sorted(declared - fields)]
 
 # 2/3 --- docs commands and paths
 docs = [p for p in [ROOT / "README.md", ROOT / "SECURITY.md", ROOT / "DEPLOYMENT.md", ROOT / "TESTING.md", *sorted((ROOT / "docs").glob("*.md"))] if p.exists()]
-scripts = set(json.loads((ROOT / "frontend/package.json").read_text())["scripts"])
+scripts = set(json.loads((ROOT / "frontend/package.json").read_text(encoding="utf-8"))["scripts"])
 for d in docs:
-    text = d.read_text()
+    text = d.read_text(encoding="utf-8")
     for s in re.findall(r"npm run ([\w:-]+)", text):
         if s not in scripts:
             problems.append(f"{d.name}: npm script '{s}' does not exist")

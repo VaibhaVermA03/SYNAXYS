@@ -1,0 +1,8 @@
+# Template for /.well-known/security.txt (RFC 9116). Do NOT publish it until every line below is real:
+# copy to frontend/public/.well-known/security.txt and fill in the values.
+Contact: [mailto:SECURITY-CONTACT or https://URL-OF-PRIVATE-REPORTING-FORM]
+Expires: [ISO-8601 DATE-TIME, at most one year ahead, e.g. 2027-01-31T00:00:00Z]
+Encryption: [https://URL-OF-PUBLIC-PGP-KEY]  (optional)
+Preferred-Languages: [en]
+Policy: [https://YOUR-DOMAIN/legal/security]
+Canonical: [https://YOUR-DOMAIN/.well-known/security.txt]

@@ -130,7 +130,7 @@ def update_workspace(db: Session, user: User, workspace_id: int, *, name: str | 
 
 
 def delete_workspace(db: Session, user: User, workspace_id: int, confirm_name: str) -> None:
-    """Owner only; the name must be typed. Repositories are disconnected (index cleanup queued) and detached; their data is not read by anyone afterwards."""
+    """Owner only; the name must be typed. Deletes the workspace AND all SYNAXYS data about its repositories (reviews, findings, comments, index state; vectors via the queue)."""
     ws, _ = require_member(db, user, workspace_id, "owner")
     if (confirm_name or "").strip() != ws.name:
         raise BadRequest("Type the workspace name to confirm.", code="confirmation_mismatch")
@@ -139,14 +139,45 @@ def delete_workspace(db: Session, user: User, workspace_id: int, confirm_name: s
     db.commit()
 
 
+def purge_repositories(db: Session, repo_ids: list[int]) -> None:
+    """Permanently delete everything SYNAXYS stores about these repositories: pull requests, reviews, findings, comments, posting attempts, index state, configuration,
+    repository-scoped rules and access rows, then the repository rows themselves. Vectors are removed by a queued `index_delete` job (payload purged=true, which works
+    without the repository row). Explicit deletes (not only FK cascades) so it is complete on every database. Does not commit."""
+    if not repo_ids:
+        return
+    from app.models import (BackgroundJob, BranchIndexState, CodeReview, IndexedFile, IndexingBatch, IndexingJob, PullRequest, ReviewComment, ReviewConfiguration, ReviewFinding,
+                            ReviewPostingAttempt, ReviewRule)
+    prs = select(PullRequest.id).where(PullRequest.repository_id.in_(repo_ids))
+    reviews = select(CodeReview.id).where(CodeReview.pull_request_id.in_(prs))
+    review_ids = set(db.scalars(reviews).all())
+    findings = select(ReviewFinding.id).where(ReviewFinding.review_id.in_(reviews))
+    for r in repo_ids:
+        job_queue.enqueue_or_requeue(db, "index_delete", {"repository_id": r, "purged": True}, f"index_delete:{r}")
+    for j in db.scalars(select(BackgroundJob).where(BackgroundJob.status == "queued", BackgroundJob.kind.in_(["review", "publish", "index", "index_branch_delete"]))).all():
+        p = j.payload if isinstance(j.payload, dict) else {}
+        if p.get("repository_id") in repo_ids or p.get("review_id") in review_ids:
+            job_queue.cancel(db, j.id, reason="Repository was deleted with its workspace", commit=False)  # nothing is left to run against
+    jobs = select(IndexingJob.id).where(IndexingJob.repository_id.in_(repo_ids))
+    db.execute(delete(ReviewPostingAttempt).where(ReviewPostingAttempt.review_id.in_(reviews)))
+    db.execute(delete(ReviewComment).where(ReviewComment.finding_id.in_(findings)))
+    db.execute(delete(ReviewFinding).where(ReviewFinding.review_id.in_(reviews)))
+    db.execute(delete(CodeReview).where(CodeReview.pull_request_id.in_(prs)))
+    db.execute(delete(PullRequest).where(PullRequest.repository_id.in_(repo_ids)))
+    db.execute(delete(IndexingBatch).where(IndexingBatch.job_id.in_(jobs)))
+    db.execute(delete(IndexingJob).where(IndexingJob.repository_id.in_(repo_ids)))
+    db.execute(delete(IndexedFile).where(IndexedFile.repository_id.in_(repo_ids)))
+    db.execute(delete(BranchIndexState).where(BranchIndexState.repository_id.in_(repo_ids)))
+    db.execute(delete(ReviewConfiguration).where(ReviewConfiguration.repository_id.in_(repo_ids)))
+    db.execute(delete(ReviewRule).where(ReviewRule.repository_id.in_(repo_ids)))
+    db.execute(delete(RepositoryAccess).where(RepositoryAccess.repository_id.in_(repo_ids)))
+    db.execute(delete(Repository).where(Repository.id.in_(repo_ids)))
+    db.expire_all()
+
+
 def _dissolve(db: Session, ws: Workspace) -> None:
-    repos = db.scalars(select(Repository).where(Repository.workspace_id == ws.id)).all()
-    for r in repos:
-        r.is_enabled, r.workspace_id, r.index_status = False, None, "not_indexed"
-        job_queue.enqueue_or_requeue(db, "index_delete", {"repository_id": r.id}, f"index_delete:{r.id}")
+    """Delete a workspace INCLUDING all SYNAXYS data about its repositories (see purge_repositories). The repositories on GitHub are not touched."""
+    purge_repositories(db, list(db.scalars(select(Repository.id).where(Repository.workspace_id == ws.id)).all()))
     db.flush()
-    if repos:
-        db.execute(delete(RepositoryAccess).where(RepositoryAccess.repository_id.in_([r.id for r in repos])))
     db.execute(update(AuditLog).where(AuditLog.workspace_id == ws.id).values(workspace_id=None))
     db.execute(delete(Notification).where(Notification.workspace_id == ws.id))
     db.execute(delete(WorkspaceInvitation).where(WorkspaceInvitation.workspace_id == ws.id))
@@ -173,7 +204,7 @@ def change_role(db: Session, user: User, workspace_id: int, target_user_id: int,
     if reason:
         raise Forbidden(_REASONS.get(reason, "Not allowed"))
     old, target.role = target.role, new_role
-    db.flush()
+    db.flush()  # SessionLocal has autoflush=False: sync_access must see the new role
     sync_access(db, workspace_id)
     audit(db, user.id, "workspace.role_changed", workspace_id, "user", target_user_id, old=old, new=new_role)
     notif.safe(notif.notify, db, [target_user_id], kind="workspace_role_changed", title=f"Your role in “{ws.name}” is now {new_role}", link="/app/settings/workspaces",
@@ -223,6 +254,7 @@ def transfer_ownership(db: Session, user: User, workspace_id: int, new_owner_id:
     if target is None or target.user_id == user.id:
         raise NotFound("Member not found")
     target.role, me.role = "owner", "admin"
+    db.flush()  # autoflush=False: sync_access must see both new roles
     sync_access(db, workspace_id)
     audit(db, user.id, "workspace.ownership_transferred", workspace_id, "user", new_owner_id)
     notif.safe(notif.notify, db, [new_owner_id], kind="workspace_owner", title=f"You are now the owner of “{ws.name}”", link="/app/settings/workspaces", workspace_id=ws.id,

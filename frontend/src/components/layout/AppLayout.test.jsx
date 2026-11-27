@@ -87,6 +87,67 @@ describe('AppLayout — sidebar', () => {
   })
 })
 
+describe('AppLayout — Learn more menu', () => {
+  const legal = [['Privacy Policy', '/legal/privacy'], ['Terms of Service', '/legal/terms'], ['Security', '/legal/security'], ['Licence', '/legal/license']]
+
+  it('has no legal links at the bottom of the page any more', async () => {
+    asDesktop(); setup(); await screen.findByText('alice')
+    expect(screen.queryByRole('navigation', { name: 'Legal' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: 'Privacy Policy' })).not.toBeInTheDocument()
+  })
+
+  it('sits directly below Settings, has an icon, and shows no links until it is hovered', async () => {
+    asDesktop(); setup(); await screen.findByText('alice')
+    const btn = screen.getByRole('button', { name: 'Learn more' })
+    expect(btn.querySelector('svg')).toBeInTheDocument()
+    expect(btn).toHaveAttribute('aria-expanded', 'false')
+    const settings = screen.getByRole('link', { name: 'Settings' })
+    expect(settings.compareDocumentPosition(btn) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(screen.queryByRole('link', { name: 'Privacy Policy' })).not.toBeInTheDocument()
+  })
+
+  it('desktop: hovering opens the four legal links, moving away closes them', async () => {
+    asDesktop(); setup(); await screen.findByText('alice')
+    const btn = screen.getByRole('button', { name: 'Learn more' })
+    await userEvent.hover(btn)
+    const list = await screen.findByRole('list', { name: 'Learn more' })
+    expect(btn).toHaveAttribute('aria-expanded', 'true')
+    for (const [label, href] of legal) expect(screen.getByRole('link', { name: label })).toHaveAttribute('href', href)
+    expect(list.querySelectorAll('a')).toHaveLength(4)
+    await userEvent.unhover(btn)
+    await waitFor(() => expect(screen.queryByRole('list', { name: 'Learn more' })).not.toBeInTheDocument())
+  })
+
+  it('desktop: the popup stays open while the pointer is over it, and Escape closes it', async () => {
+    asDesktop(); setup(); await screen.findByText('alice')
+    await userEvent.hover(screen.getByRole('button', { name: 'Learn more' }))
+    const link = await screen.findByRole('link', { name: 'Terms of Service' })
+    await userEvent.unhover(screen.getByRole('button', { name: 'Learn more' }))
+    await userEvent.hover(link)
+    await new Promise((r) => setTimeout(r, 250))
+    expect(screen.getByRole('link', { name: 'Terms of Service' })).toBeInTheDocument()
+    link.focus()
+    await userEvent.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('link', { name: 'Terms of Service' })).not.toBeInTheDocument())
+  })
+
+  it('keyboard: Enter on the entry opens the links', async () => {
+    asDesktop(); setup(); await screen.findByText('alice')
+    screen.getByRole('button', { name: 'Learn more' }).focus()
+    await userEvent.keyboard('{Enter}')
+    expect(await screen.findByRole('link', { name: 'Privacy Policy' })).toBeInTheDocument()
+  })
+
+  it('mobile: the entry expands in place when tapped and a link closes the drawer', async () => {
+    setup(); await screen.findByText('alice')
+    await userEvent.click(screen.getByRole('button', { name: 'Open sidebar' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Learn more' }))
+    expect(screen.getAllByRole('link', { name: /Privacy Policy|Terms of Service|Security|Licence/ })).toHaveLength(4)
+    await userEvent.click(screen.getByRole('button', { name: 'Learn more' }))
+    expect(screen.queryByRole('link', { name: 'Privacy Policy' })).not.toBeInTheDocument()
+  })
+})
+
 describe('AppLayout — header', () => {
   it('shows the page name in one line with an ellipsis when it does not fit', async () => {
     setup(); await screen.findByText('alice')

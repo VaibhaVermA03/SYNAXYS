@@ -36,7 +36,7 @@ def main(out: pathlib.Path) -> int:
         if SKIP_DIRS & set(f.relative_to(ROOT).parts) or any(re.search(p, rel) for p in SKIP_FILE):
             excluded.append(rel); continue
         try:
-            text = f.read_text()
+            text = f.read_text(encoding="utf-8")
         except (UnicodeDecodeError, OSError):
             include.append(f); continue
         for name, rx in SECRETS.items():

@@ -2,14 +2,14 @@
 
 Based on a direct read of the uploaded ZIP (see `PROJECT_CONTEXT.md`).
 
-## Status (updated 2026-11-20)
+## Status (updated 2026-11-20) — all five phases are written; what remains is YOUR local test run, configuration, placeholders and legal review
 | Phase | State |
 |---|---|
 | 1 Core security and reliability | **Written and delivered (batch 13)**; only the stdlib-testable parts executed (114/114 pure tests, repo checks). Needs your local `pytest`/build/CI run and the configuration in `docs/PHASE1_OPERATIONS.md` |
 | 2 GitHub review workflow | **Written and delivered (batch 14)**: dismissal, cancel, comment delete, search PR links (branch selector deferred to after Phase 3, as agreed). Pure tests 119/119; DB/UI tests NOT RUN |
 | 3 Indexing (+ branch selector after it) | **Written and delivered (batch 15)**: branch-aware, batched, incremental, large-repo capable; search branch selector. Pure tests 129/129; DB/UI tests NOT RUN |
 | 4 Workspaces, notifications, account | **Written and delivered (batch 16)**: workspaces/RBAC/invitations, notifications, account export + deletion. Pure tests 139/139; DB/UI tests NOT RUN |
-| 5 Trust and compliance | Not started (next) |
+| 5 Trust and compliance | **Written and delivered (batch 17)**: favicon, proprietary licence notice, security policy, Privacy Policy + Terms drafts (placeholders; need your details and legal review). Pure tests 151/151; UI tests NOT RUN |
 
 **Owner decisions (2026-11-20):** D1 independent SYNAXYS workspaces with their own invitations/members/roles, designed so a workspace can hold several GitHub installations; D2 admins = `ADMIN_GITHUB_IDS` allow-list (backend-enforced); D3 Redis rate limiting; D4 proprietary licence with placeholders; D5 Sentry. Order confirmed, with branch selector after Phase 3.
 Sections A-E below are the original audit text; where Phase 1 resolved an item, `PROJECT_CONTEXT.md` section 15 is authoritative.

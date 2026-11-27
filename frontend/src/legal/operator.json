@@ -1,0 +1,21 @@
+{
+  "_readme": "The ONLY file you edit to put your real details into the legal pages (Privacy Policy, Terms, Security, Licence). Replace every value that is still written in [[double brackets]] with your real information, keep the quotes, then run: python backend/tools/gen_legal_docs.py . While any [[...]] is left, the page shows a highlighted draft notice.",
+  "ownerName": "VAIBHAV VERMA",
+  "postalAddress": "Nangloi, Delhi, India",
+  "contactEmail": "vaibhavverma0307@gmail.com",
+  "securityEmail": "vaibhavverma0307@gmail.com",
+  "effectiveDate": "1 December 2026",
+  "year": "2026",
+  "governingLaw": "The laws of India, New Delhi, India",
+  "courts": "New Delhi, India",
+  "productionUrl": "https://synaxys.vercel.app",
+  "hostingProviders": "Vercel (web front end) and Render (API, background worker, database and Redis-compatible store)",
+  "hostingRegion": "Singapore, South East Asia (Render) and Washington, D.C., USA (East) - us-east-1 - iad1 (Vercel)",
+  "pineconeRegion": "us-east-1",
+  "sentryStatus": "Sentry is not enabled for this project",
+  "backupRetention": "30 days",
+  "ackTime": "7 days",
+  "assessTime": "14 days",
+  "disclosureWindow": "90 days",
+  "recognition": "SYNAXYS does not run a bug bounty; with your permission we will credit you by name once the issue is fixed"
+}

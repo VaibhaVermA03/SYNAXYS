@@ -5,6 +5,7 @@ import Logo from './Logo'
 import ProfileMenu from './ProfileMenu'
 import ThemeToggle from './ThemeToggle'
 import WorkspaceSwitcher from './WorkspaceSwitcher'
+import LearnMoreMenu from './LearnMoreMenu'
 import NotificationBell from './NotificationBell'
 import { WorkspaceProvider } from '../../app/WorkspaceProvider'
 import { useAuth } from '../../app/AuthProvider'
@@ -55,6 +56,7 @@ function Sidebar({ open, onClose, closeRef, items }) {
             <Icon className="h-[18px] w-[18px] shrink-0" strokeWidth={1.5} aria-hidden />{label}
           </NavLink>
         ))}
+        <LearnMoreMenu sidebarOpen={open} onNavigate={onClose} />
       </nav>
     </aside>
   )
@@ -120,6 +122,7 @@ function AppLayoutInner() {
           </div>
         </header>
         <main className="mx-auto max-w-6xl p-4 sm:p-6"><Outlet /></main>
+        <div className="pb-6" />
       </div>
     </div>
   )
